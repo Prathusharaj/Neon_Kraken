@@ -133,6 +133,21 @@
     .p1-hp { background: #00f0ff; box-shadow: 0 0 8px #00f0ff; }
     .p2-hp { background: #ffe600; box-shadow: 0 0 8px #ffe600; }
     .dash-bar { height: 4px; background: #39ff14; box-shadow: 0 0 6px #39ff14; }
+    .oxy-bar { height: 6px; background: #00aaff; box-shadow: 0 0 6px #00aaff; }
+    .oxy-bar.low { background: #ff0055; box-shadow: 0 0 8px #ff0055; animation: pulse 0.4s infinite alternate; }
+    .oxy-label { font-family: 'Orbitron', monospace; font-size: 9px; color: #66d4ff; letter-spacing: 1px; margin-top: 2px; }
+
+    /* FLOOD / WATER RISING HUD */
+    .flood-row { margin-top: 7px; width: 100%; display: flex; flex-direction: column; gap: 3px; }
+    .flood-label { font-family: 'Orbitron', monospace; font-size: 10px; color: #00d4ff; letter-spacing: 1px; display: flex; justify-content: space-between; }
+    .flood-label.critical { color: #ff0055; text-shadow: 0 0 8px #ff0055; animation: pulse 0.4s infinite alternate; }
+    .water-bar-bg { width: 100%; height: 6px; background: rgba(10, 20, 40, 0.9); border-radius: 2px; overflow: hidden; }
+    .water-bar-fill { height: 100%; background: linear-gradient(90deg, #0066cc, #00f0ff); box-shadow: 0 0 8px #00aaff; width: 0%; transition: width 0.3s linear; }
+
+    /* RADAR */
+    .radar-box { position: absolute; bottom: 80px; left: 24px; z-index: 20; text-align: center; pointer-events: none; }
+    .radar-label { font-family: 'Orbitron', monospace; font-size: 9px; color: #ff0077; letter-spacing: 1.5px; margin-bottom: 4px; text-shadow: 0 0 6px #ff0077; }
+    #radarCanvas { border-radius: 50%; border: 1px solid rgba(255, 0, 119, 0.5); background: rgba(6, 15, 30, 0.7); box-shadow: 0 0 14px rgba(255, 0, 119, 0.35); }
 
     /* MISSION STATUS & OBJECTIVE FLOW */
     .mission-panel {
@@ -547,6 +562,10 @@
             <div class="bar-bg" style="height: 4px;">
               <div id="p1DashBar" class="bar-fill dash-bar" style="width: 100%;"></div>
             </div>
+            <div class="bar-bg oxy-bar-bg">
+              <div id="p1OxyBar" class="bar-fill oxy-bar" style="width: 100%;"></div>
+            </div>
+            <div class="oxy-label">O2: <span id="p1OxyText">100%</span></div>
           </div>
 
           <!-- Player 2 -->
@@ -561,6 +580,10 @@
             <div class="bar-bg" style="height: 4px;">
               <div id="p2DashBar" class="bar-fill dash-bar" style="width: 100%;"></div>
             </div>
+            <div class="bar-bg oxy-bar-bg">
+              <div id="p2OxyBar" class="bar-fill oxy-bar" style="width: 100%;"></div>
+            </div>
+            <div class="oxy-label">O2: <span id="p2OxyText">100%</span></div>
           </div>
         </div>
 
@@ -577,6 +600,14 @@
               <div id="slot3" class="key-slot"></div>
             </div>
             <span id="objectiveStatusText" class="objective-status-text">FIND THE KEY // AVOID THE BOSS &amp; CLAW</span>
+          </div>
+
+          <!-- Rising Water / Flood Timer -->
+          <div class="flood-row">
+            <span class="flood-label" id="floodLabel">🌊 FLOOD IN: <span id="floodTimerText">5:00</span></span>
+            <div class="water-bar-bg">
+              <div id="waterLevelBar" class="water-bar-fill"></div>
+            </div>
           </div>
         </div>
 
@@ -600,6 +631,12 @@
           <button id="restartQuickBtn" class="btn-cyber">🔄 RESTART</button>
         </div>
       </div>
+    </div>
+
+    <!-- Octopus Boss Radar -->
+    <div id="radarBox" class="radar-box">
+      <div class="radar-label">OCTOPUS RADAR</div>
+      <canvas id="radarCanvas" width="120" height="120"></canvas>
     </div>
 
     <!-- START SCREEN MODAL WITH LIVE QR CODE -->
@@ -1159,6 +1196,7 @@
           this.stage1ClawPos = { x: -440, y: -190 };
           this.room1KeycardPos = { x: -400, y: -190 }; // Spawns directly next to the Claw Machine
           this.room2KeycardPos = { x: 30, y: -108 }; // Halfway down the Bowling Corridor
+          this.room3KeycardPos = { x: 0, y: -455 }; // Inside the North Vault (Room 3)
           this.bowlingLaneYs = [-162, -108, -54]; // 3 lanes
           this.bowlingLaneXStart = 380; // spawn end (near Room 2 / pins)
           this.bowlingLaneXEnd = -320; // despawn end (near Room 1 / hub)
@@ -2350,6 +2388,13 @@
           this.comboTimer = 0;
           this.exitUnlocked = false;
 
+          // Rising water flood + oxygen system
+          this.floodDuration = 180; // 3 minutes
+          this.floodTimer = this.floodDuration;
+          this.waterY = this.facility.startY + this.facility.height;
+          this.oxygen = { p1: 100, p2: 100 };
+          this.playerCenter = { x: 0, y: 0 };
+
           this.camera = { x: 0, y: 0 };
           this.keys = {};
           this.p2MobileDir = { x: 0, y: 0 };
@@ -2468,6 +2513,10 @@
           this.comboTimer = 0;
           this.exitUnlocked = false;
           this.correctDoor = Math.random() < 0.5 ? 'A' : 'B'; // Randomized on load
+
+          this.floodTimer = this.floodDuration;
+          this.waterY = this.facility.startY + this.facility.height;
+          this.oxygen = { p1: 100, p2: 100 };
 
           for (const p of this.projectiles) p.active = false;
           this.collectibles = [];
@@ -2612,8 +2661,11 @@
                       this.popups.spawn(this.facility.gate2.x, this.facility.gate2.y - 30, "STAGE 1 COMPLETE! STAGE 2 UNLOCKED!", '#ffe600', 1.4);
                       this.collectibles.push(new CollectibleItem('keycard', this.facility.room2KeycardPos.x, this.facility.room2KeycardPos.y, 2));
                     } else if (this.keycardsDeposited === 2) {
-                      // Stage 2 cleared -> unlock Stage 3 (Piranha Doors)
-                      this.popups.spawn(this.facility.gate3.x, this.facility.gate3.y - 30, "STAGE 2 COMPLETE! CHOOSE A DOOR...", '#ffe600', 1.4);
+                      // Stage 2 cleared -> Room 3 (North Vault) open, spawn the final Key
+                      this.popups.spawn(this.facility.gate3.x, this.facility.gate3.y - 30, "STAGE 2 COMPLETE! FIND THE FINAL KEY!", '#ffe600', 1.4);
+                      this.collectibles.push(new CollectibleItem('keycard', this.facility.room3KeycardPos.x, this.facility.room3KeycardPos.y, 3));
+                    } else if (this.keycardsDeposited === 3) {
+                      this.popups.spawn(player.pos.x, player.pos.y - 30, "ALL KEYS FOUND! CHOOSE A DOOR...", '#39ff14', 1.4);
                     }
                   } else {
                     c.alive = false;
@@ -2649,7 +2701,7 @@
             }
 
             // 6. STAGE 3: PIRANHA DOOR CHECK (only reachable once Stage 3 is unlocked)
-            if (this.keycardsDeposited >= 2 && this.state === 'PLAYING') {
+            if (this.keycardsDeposited >= 3 && this.state === 'PLAYING') {
               for (const player of this.players) {
                 if (player.isDead) continue;
                 const dA = Math.hypot(this.facility.doorA.x - player.pos.x, this.facility.doorA.y - player.pos.y);
@@ -2686,6 +2738,42 @@
               const avgY = activePlayers.reduce((sum, p) => sum + p.pos.y, 0) / activePlayers.length;
               this.camera.x += (avgX * 0.5 - this.camera.x) * dt * 5;
               this.camera.y += (avgY * 0.5 - this.camera.y) * dt * 5;
+              this.playerCenter.x = avgX;
+              this.playerCenter.y = avgY;
+            }
+
+            // 7. RISING WATER FLOOD & OXYGEN
+            if (this.state === 'PLAYING') {
+              this.floodTimer = Math.max(0, this.floodTimer - dt);
+              const topY = this.facility.startY;
+              const bottomY = this.facility.startY + this.facility.height;
+              const elapsed = this.floodDuration - this.floodTimer;
+              const floodProgress = Math.max(0, Math.min(1, elapsed / this.floodDuration));
+              this.waterY = bottomY + floodProgress * (topY - bottomY);
+
+              for (const player of this.players) {
+                if (player.isDead) continue;
+                const key = player.id;
+                const submerged = player.pos.y > this.waterY;
+                if (submerged) {
+                  this.oxygen[key] = Math.max(0, this.oxygen[key] - dt * (100 / 10));
+                  player.takeDamage(dt * 4, this.shake, this.particles, this.popups);
+                  if (this.oxygen[key] <= 0) {
+                    player.takeDamage(dt * 20, this.shake, this.particles, this.popups);
+                  }
+                } else {
+                  this.oxygen[key] = Math.min(100, this.oxygen[key] + dt * 25);
+                }
+              }
+
+              if (this.floodTimer <= 0 && this.state === 'PLAYING') {
+                this.state = 'GAMEOVER';
+                this.shake.add(0.8);
+                document.getElementById('gameOverSubtitle').textContent = 'The facility flooded completely! You drowned in the depths.';
+                document.getElementById('gameOverModal').classList.remove('hidden');
+                document.getElementById('finalScoreText').textContent = `FINAL SCORE: ${this.score}`;
+                sound.playDamage();
+              }
             }
 
             this._syncHud();
@@ -2739,6 +2827,38 @@
             statusText.className = 'objective-status-text';
           }
 
+          // Oxygen Meters
+          const p1OxyBar = document.getElementById('p1OxyBar');
+          const p1OxyText = document.getElementById('p1OxyText');
+          if (p1OxyBar) {
+            p1OxyBar.style.width = `${Math.max(0, this.oxygen.p1)}%`;
+            p1OxyBar.classList.toggle('low', this.oxygen.p1 < 30);
+          }
+          if (p1OxyText) p1OxyText.textContent = `${Math.ceil(this.oxygen.p1)}%`;
+
+          const p2OxyBar = document.getElementById('p2OxyBar');
+          const p2OxyText = document.getElementById('p2OxyText');
+          if (p2OxyBar) {
+            p2OxyBar.style.width = `${Math.max(0, this.oxygen.p2)}%`;
+            p2OxyBar.classList.toggle('low', this.oxygen.p2 < 30);
+          }
+          if (p2OxyText) p2OxyText.textContent = `${Math.ceil(this.oxygen.p2)}%`;
+
+          // Flood Timer & Rising Water Level
+          const floodTimerText = document.getElementById('floodTimerText');
+          const floodLabel = document.getElementById('floodLabel');
+          const waterLevelBar = document.getElementById('waterLevelBar');
+          if (floodTimerText) {
+            const mins = Math.floor(this.floodTimer / 60);
+            const secs = Math.floor(this.floodTimer % 60);
+            floodTimerText.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+          }
+          if (floodLabel) floodLabel.classList.toggle('critical', this.floodTimer < 30);
+          if (waterLevelBar) {
+            const p = Math.max(0, Math.min(1, (this.floodDuration - this.floodTimer) / this.floodDuration));
+            waterLevelBar.style.width = `${p * 100}%`;
+          }
+
           document.getElementById('scoreDisplay').textContent = this.score.toLocaleString();
           const mulBadge = document.getElementById('multiplierDisplay');
           mulBadge.textContent = `${this.multiplier}X MULTIPLIER`;
@@ -2764,6 +2884,9 @@
           // 1. Draw Facility Walls, Corridors, Gates & Arcade Cabinets
           this.facility.draw(this.ctx, this.keycardsDeposited, this.exitUnlocked);
 
+          // 1b. Draw Rising Water Flood
+          this._drawWater();
+
           // 2. Draw Overhead Claw Machine Hazards
           for (const claw of this.claws) claw.draw(this.ctx);
 
@@ -2788,6 +2911,89 @@
           this.popups.draw(this.ctx);
 
           this.ctx.restore();
+
+          this._drawRadar();
+        }
+
+        _drawWater() {
+          const ctx = this.ctx;
+          const bottomY = this.facility.startY + this.facility.height;
+          const leftX = this.facility.startX - 60;
+          const rightX = this.facility.startX + this.facility.width + 60;
+          if (this.waterY >= bottomY) return;
+          const t = performance.now() / 500;
+          ctx.save();
+          const waveAmp = 7, waveLen = 70;
+          ctx.beginPath();
+          ctx.moveTo(leftX, this.waterY);
+          for (let x = leftX; x <= rightX; x += 14) {
+            ctx.lineTo(x, this.waterY + Math.sin(x / waveLen + t) * waveAmp);
+          }
+          ctx.lineTo(rightX, bottomY + 60);
+          ctx.lineTo(leftX, bottomY + 60);
+          ctx.closePath();
+
+          const grad = ctx.createLinearGradient(0, this.waterY, 0, bottomY + 60);
+          grad.addColorStop(0, 'rgba(0, 160, 255, 0.55)');
+          grad.addColorStop(1, 'rgba(0, 40, 110, 0.85)');
+          ctx.fillStyle = grad;
+          ctx.fill();
+
+          ctx.strokeStyle = '#7CF6FF';
+          ctx.lineWidth = 4;
+          ctx.shadowColor = '#00e0ff';
+          ctx.shadowBlur = 18;
+          ctx.beginPath();
+          ctx.moveTo(leftX, this.waterY);
+          for (let x = leftX; x <= rightX; x += 14) {
+            ctx.lineTo(x, this.waterY + Math.sin(x / waveLen + t) * waveAmp);
+          }
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        _drawRadar() {
+          const canvas = document.getElementById('radarCanvas');
+          if (!canvas) return;
+          const rctx = canvas.getContext('2d');
+          const size = canvas.width;
+          const cx = size / 2, cy = size / 2, R = size / 2 - 8;
+          rctx.clearRect(0, 0, size, size);
+
+          rctx.strokeStyle = 'rgba(0, 240, 255, 0.25)';
+          rctx.lineWidth = 1;
+          for (let i = 1; i <= 3; i++) {
+            rctx.beginPath();
+            rctx.arc(cx, cy, (R * i) / 3, 0, Math.PI * 2);
+            rctx.stroke();
+          }
+
+          // Player (center) marker
+          rctx.fillStyle = '#00f0ff';
+          rctx.shadowColor = '#00f0ff';
+          rctx.shadowBlur = 6;
+          rctx.beginPath();
+          rctx.arc(cx, cy, 4, 0, Math.PI * 2);
+          rctx.fill();
+          rctx.shadowBlur = 0;
+
+          // Octopus boss blip
+          if (this.boss) {
+            const dx = this.boss.pos.x - this.playerCenter.x;
+            const dy = this.boss.pos.y - this.playerCenter.y;
+            const dist = Math.hypot(dx, dy) || 0.001;
+            const maxRange = 900;
+            const scale = Math.min(1, dist / maxRange) * R;
+            const bx = cx + (dx / dist) * scale;
+            const by = cy + (dy / dist) * scale;
+            rctx.fillStyle = '#ff0077';
+            rctx.shadowColor = '#ff0077';
+            rctx.shadowBlur = 9;
+            rctx.beginPath();
+            rctx.arc(bx, by, 5, 0, Math.PI * 2);
+            rctx.fill();
+            rctx.shadowBlur = 0;
+          }
         }
       }
 
