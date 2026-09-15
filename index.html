@@ -1,23 +1,342 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEON KRAKEN // Sublevel 9 Arcade</title>
+<script type="module" src="https://cdn.spline.design/@splinetool/viewer@2.0.51/build/spline-viewer.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Rajdhani:wght@500;600;700&display=swap');
+
+  :root{
+    --bg:#03050c;
+    --panel:rgba(7,14,28,0.88);
+    --cyan:#00f0ff;
+    --pink:#ff0077;
+    --yellow:#ffe600;
+    --green:#39ff14;
+  }
+
+  *{ margin:0; padding:0; box-sizing:border-box; }
+
+  html{ scroll-behavior:smooth; }
+
+  body{
+    background:var(--bg);
+    color:#dfeeff;
+    font-family:'Rajdhani', sans-serif;
+    font-size:18px;
+    line-height:1.55;
+    overflow-x:hidden;
+  }
+
+  h1,h2,.wordmark{ font-family:'Orbitron', monospace; }
+
+  a{ color:inherit; }
+
+  /* ---------- background texture shared by whole page ---------- */
+  body::before{
+    content:'';
+    position:fixed; inset:0;
+    background-image:
+      linear-gradient(rgba(18,16,16,0) 50%, rgba(0,0,0,0.18) 50%);
+    background-size:100% 3px;
+    pointer-events:none;
+    z-index:50;
+    opacity:0.35;
+  }
+
+  /* ---------- top bar ---------- */
+  .topbar{
+    position:fixed; top:0; left:0; right:0; z-index:40;
+    display:flex; justify-content:space-between; align-items:center;
+    padding:18px 34px;
+    background:linear-gradient(rgba(3,5,12,0.9), rgba(3,5,12,0));
+  }
+  .wordmark{
+    font-size:15px; font-weight:800; letter-spacing:3px; color:var(--cyan);
+    text-shadow:0 0 10px rgba(0,240,255,0.6);
+  }
+  .wordmark span{ color:var(--pink); }
+  .topbar a.play-link{
+    font-family:'Orbitron', monospace; font-size:12px; letter-spacing:2px;
+    color:var(--yellow); border:1px solid rgba(255,230,0,0.5);
+    padding:9px 16px; border-radius:3px; text-decoration:none;
+    background:rgba(255,230,0,0.06);
+    transition:background 0.2s;
+  }
+  .topbar a.play-link:hover{ background:rgba(255,230,0,0.16); }
+
+  /* ---------- hero ---------- */
+  .hero{
+    position:relative;
+    min-height:100vh;
+    display:flex; flex-direction:column; align-items:center; justify-content:flex-end;
+    padding:120px 24px 64px;
+    background:
+      radial-gradient(circle at 50% 20%, rgba(0,90,160,0.28), transparent 55%),
+      var(--bg);
+    overflow:hidden;
+  }
+  .hero-grid{
+    position:absolute; left:0; right:0; bottom:0; height:52%;
+    background-image:
+      repeating-linear-gradient(90deg, rgba(0,240,255,0.16) 0 1px, transparent 1px 64px),
+      repeating-linear-gradient(0deg, rgba(0,240,255,0.16) 0 1px, transparent 1px 64px);
+    transform:perspective(420px) rotateX(62deg);
+    transform-origin:bottom;
+    mask-image:linear-gradient(to top, black, transparent);
+    -webkit-mask-image:linear-gradient(to top, black, transparent);
+  }
+  spline-viewer{
+    width:min(640px, 82vw);
+    height:min(640px, 60vh);
+    position:relative; z-index:2;
+    filter:drop-shadow(0 0 40px rgba(255,0,119,0.25));
+  }
+  .hero-copy{ position:relative; z-index:2; text-align:center; max-width:640px; margin-top:-18px; }
+  .hero-copy h1{
+    font-size:clamp(38px, 6vw, 64px);
+    font-weight:900; letter-spacing:4px; color:#fff;
+    text-shadow:0 0 18px rgba(0,240,255,0.55), 0 0 46px rgba(255,0,119,0.35);
+  }
+  .hero-copy p{
+    margin-top:14px; font-size:19px; color:#9fc3e0; letter-spacing:0.4px;
+  }
+  .scroll-cue{
+    position:relative; z-index:2; margin-top:34px;
+    font-family:'Orbitron', monospace; font-size:11px; letter-spacing:3px;
+    color:rgba(159,195,224,0.7);
+  }
+
+  /* ---------- lore / briefing ---------- */
+  .briefing{
+    max-width:720px; margin:0 auto; padding:100px 24px 40px;
+  }
+  .briefing-panel{
+    background:var(--panel);
+    border:1px solid rgba(0,240,255,0.35);
+    border-left:3px solid var(--pink);
+    border-radius:4px;
+    padding:34px 38px;
+    box-shadow:0 0 30px rgba(0,240,255,0.08);
+  }
+  .briefing-panel .tag{
+    font-family:'Orbitron', monospace; font-size:11px; letter-spacing:3px;
+    color:var(--pink); margin-bottom:14px; display:block;
+  }
+  .briefing-panel h2{
+    font-size:22px; letter-spacing:1px; color:#fff; margin-bottom:16px;
+  }
+  .briefing-panel p{ color:#b9d4ec; margin-bottom:14px; }
+  .briefing-panel p:last-child{ margin-bottom:0; }
+  .briefing-panel strong{ color:var(--yellow); font-weight:700; }
+
+  /* ---------- arcade cabinet ---------- */
+  .stage{
+    padding:70px 20px 120px;
+    display:flex; justify-content:center;
+  }
+  .cabinet{
+    width:100%; max-width:960px;
+    background:linear-gradient(180deg, #171d2c 0%, #0c1019 60%, #070a12 100%);
+    border-radius:22px 22px 10px 10px;
+    padding:26px 26px 22px;
+    box-shadow:
+      0 30px 70px rgba(0,0,0,0.6),
+      inset 0 0 0 1px rgba(255,255,255,0.04);
+    position:relative;
+  }
+  .cabinet::before, .cabinet::after{
+    content:''; position:absolute; top:36px; bottom:110px; width:14px;
+    background:linear-gradient(180deg, #262e42, #0a0d15);
+    border-radius:6px;
+  }
+  .cabinet::before{ left:-6px; }
+  .cabinet::after{ right:-6px; }
+
+  .marquee{
+    text-align:center; padding:14px 10px 20px;
+    font-family:'Orbitron', monospace; font-size:clamp(20px, 3vw, 30px);
+    font-weight:900; letter-spacing:5px; color:var(--cyan);
+    text-shadow:0 0 12px var(--cyan), 0 0 34px rgba(0,240,255,0.5);
+    animation:flicker-on 1.6s ease-out 1;
+  }
+  .marquee span{ color:var(--pink); text-shadow:0 0 12px var(--pink), 0 0 34px rgba(255,0,119,0.5); }
+
+  .screen-bezel{
+    position:relative;
+    background:#000;
+    border-radius:8px;
+    padding:14px;
+    box-shadow:inset 0 0 0 1px rgba(0,240,255,0.15), inset 0 0 40px rgba(0,0,0,0.9);
+  }
+  .screen-inner{
+    position:relative; width:100%; aspect-ratio:16/10; border-radius:3px; overflow:hidden;
+    background:#000;
+  }
+  .screen-inner iframe{
+    position:absolute; inset:0; width:100%; height:100%; border:0; display:block;
+  }
+  .screen-vignette{
+    position:absolute; inset:0; pointer-events:none;
+    box-shadow:inset 0 0 90px 20px rgba(0,0,0,0.75);
+    background:radial-gradient(circle at center, transparent 55%, rgba(0,0,0,0.45) 100%);
+  }
+
+  .control-deck{
+    margin-top:20px; padding:16px 22px;
+    background:linear-gradient(180deg, #1a2033, #0e1220);
+    border-radius:10px;
+    display:flex; align-items:center; justify-content:space-between; gap:20px;
+    flex-wrap:wrap;
+  }
+  .deck-side{ display:flex; align-items:center; gap:14px; }
+  .stick{
+    width:26px; height:26px; border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, #4fe9ff, #007a92 70%);
+    box-shadow:0 0 10px rgba(0,240,255,0.6), 0 3px 0 #04303a;
+  }
+  .buttons{ display:flex; gap:7px; }
+  .buttons i{
+    width:15px; height:15px; border-radius:50%; display:block;
+  }
+  .buttons i:nth-child(1){ background:var(--pink); box-shadow:0 0 8px var(--pink); }
+  .buttons i:nth-child(2){ background:var(--yellow); box-shadow:0 0 8px var(--yellow); }
+  .buttons i:nth-child(3){ background:var(--green); box-shadow:0 0 8px var(--green); }
+  .deck-label{
+    font-family:'Orbitron', monospace; font-size:11px; letter-spacing:2px; color:#7fa8c9;
+  }
+  .coin-msg{
+    font-family:'Orbitron', monospace; font-size:12px; letter-spacing:2px; color:var(--yellow);
+    text-shadow:0 0 8px rgba(255,230,0,0.5);
+  }
+  .speaker{
+    display:flex; gap:5px;
+  }
+  .speaker i{
+    width:6px; height:6px; border-radius:50%; background:#232b40;
+  }
+
+  .controls-note{
+    max-width:960px; margin:0 auto; padding:0 20px 10px; text-align:center;
+    color:#6f93b3; font-size:14px;
+  }
+  .controls-note kbd{
+    font-family:'Orbitron', monospace; font-size:10px; background:rgba(255,255,255,0.06);
+    border:1px solid rgba(255,255,255,0.15); border-radius:3px; padding:2px 6px; margin:0 2px;
+  }
+
+  footer{
+    text-align:center; padding:40px 20px 60px; color:#4c688a; font-size:13px; letter-spacing:0.5px;
+  }
+
+  @keyframes flicker-on{
+    0%{ opacity:0; }
+    6%{ opacity:1; }
+    9%{ opacity:0.2; }
+    12%{ opacity:1; }
+    20%{ opacity:0.4; }
+    24%{ opacity:1; }
+    100%{ opacity:1; }
+  }
+
+  @media (max-width:640px){
+    .cabinet::before, .cabinet::after{ display:none; }
+    .cabinet{ padding:18px 14px 16px; }
+    .briefing{ padding:70px 18px 20px; }
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    html{ scroll-behavior:auto; }
+    .marquee{ animation:none; }
+  }
+</style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="wordmark">NEON<span>KRAKEN</span></div>
+    <a class="play-link" href="#cabinet">PLAY NOW</a>
+  </div>
+
+  <section class="hero">
+    <div class="hero-grid"></div>
+    <spline-viewer url="https://prod.spline.design/RNZpgLKgS4EJssQk/scene.splinecode"></spline-viewer>
+    <div class="hero-copy">
+      <h1>NEON KRAKEN</h1>
+      <p>A flooding sublevel. A furious guardian AI shaped like an octopus. Three minutes to get out alive.</p>
+    </div>
+    <div class="scroll-cue">SCROLL FOR BRIEFING ▾</div>
+  </section>
+
+  <section class="briefing">
+    <div class="briefing-panel">
+      <span class="tag">MISSION BRIEFING // SUBLEVEL 9</span>
+      <h2>Why the Kraken is hunting you</h2>
+      <p>Sublevel 9 used to be the best arcade in the city, back before Meridian Consumer Robotics bought the building and turned the basement into a black site for its security research. You didn't come for the Pac-Man cabinet. You came for the schematics locked in the North Vault.</p>
+      <p>The facility's guardian intelligence noticed. It calls itself the <strong>Kraken</strong> — eight hydraulic arms, a targeting core built for close-quarters pursuit, and full authority over the building's flood valves. The instant your team's presence registered, it sealed every exit and opened the reservoir gates above your heads.</p>
+      <p>The room is filling with seawater and it is not going to stop. You have three minutes before it reaches the ceiling. Recover all three stage keycards, reach the piranha-tank blast doors at the north wall, and pick correctly — only one door leads to open air. Stay dry, stay ahead of the Kraken, and get out before Sublevel 9 remembers how to keep a secret.</p>
+    </div>
+  </section>
+
+  <section class="stage" id="cabinet">
+    <div class="cabinet">
+      <div class="marquee">NEON <span>KRAKEN</span></div>
+      <div class="screen-bezel">
+        <div class="screen-inner">
+          <iframe id="gameFrame" title="Neon Kraken game" allow="autoplay"></iframe>
+          <div class="screen-vignette"></div>
+        </div>
+      </div>
+      <div class="control-deck">
+        <div class="deck-side">
+          <div class="stick"></div>
+          <div class="buttons"><i></i><i></i><i></i></div>
+          <span class="deck-label">P1</span>
+        </div>
+        <div class="coin-msg">INSERT COIN TO CONTINUE</div>
+        <div class="deck-side">
+          <span class="deck-label">P2</span>
+          <div class="buttons"><i></i><i></i><i></i></div>
+          <div class="stick"></div>
+        </div>
+        <div class="speaker">
+          <i></i><i></i><i></i><i></i><i></i><i></i>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <p class="controls-note">
+    P1 moves with <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>, dashes with <kbd>SPACE</kbd> &nbsp;·&nbsp;
+    P2 moves with the <kbd>ARROW KEYS</kbd>, dashes with <kbd>ENTER</kbd> — or scan the in-game QR code to use a phone as a second controller.
+  </p>
+
+  <footer>SUBLEVEL 9 FACILITY ARCHIVE &nbsp;—&nbsp; UNAUTHORIZED ACCESS LOGGED</footer>
+
+
+  <script>
+    document.getElementById('gameFrame').srcdoc = `<!DOCTYPE html>
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>NEON KRAKEN // Arcade Facility Escape</title>
   
   <!-- Standalone Vendor Libraries with CDN fallbacks -->
-  <script src="peerjs.min.js"></script>
+  <script src="vendor/peerjs.min.js"><\/script>
   <script>
     if (typeof Peer === 'undefined') {
-      document.write('<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"><\/script>');
+      document.write('<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"><\\/script>');
     }
-  </script>
-  <script src="qrcode.min.js"></script>
+  <\/script>
+  <script src="vendor/qrcode.min.js"><\/script>
   <script>
     if (typeof QRCode === 'undefined') {
-      document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>');
+      document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\\/script>');
     }
-  </script>
+  <\/script>
 
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@600;700&display=swap');
@@ -1800,7 +2119,7 @@
           this.invulnerableTimer = 1.0;
           shake.add(0.4);
           particles.burst(this.pos.x, this.pos.y, 20, '#ff0055', 260, 4);
-          popups.spawn(this.pos.x, this.pos.y - 20, `-${amount} HP`, '#ff0055', 1.1);
+          popups.spawn(this.pos.x, this.pos.y - 20, \`-\${amount} HP\`, '#ff0055', 1.1);
           sound.playDamage();
 
           if (this.hp <= 0) {
@@ -1921,7 +2240,7 @@
 
           let drawColor = this.baseColor;
           if (this.starTimer > 0) {
-            drawColor = `hsl(${(Date.now() / 3) % 360}, 100%, 70%)`;
+            drawColor = \`hsl(\${(Date.now() / 3) % 360}, 100%, 70%)\`;
           } else if (this.speedBoostTimer > 0) {
             drawColor = '#39ff14';
           } else if (this.isDashing) {
@@ -2102,7 +2421,7 @@
             ctx.fill();
           } else if (this.type === 'star') {
             const hue = (Date.now() / 4) % 360;
-            const col = `hsl(${hue}, 100%, 70%)`;
+            const col = \`hsl(\${hue}, 100%, 70%)\`;
             ctx.strokeStyle = col;
             ctx.fillStyle = '#300a30';
             ctx.lineWidth = 2;
@@ -2451,9 +2770,9 @@
           const words = ['CYBR', 'KRAK', 'NEON', 'VOID', 'ABYS', 'ROBX', 'VOXL', 'CLAW'];
           this.roomCode = words[Math.floor(Math.random() * words.length)] + Math.floor(10 + Math.random() * 89);
           const roomLabel = document.getElementById('roomCodeLabel');
-          if (roomLabel) roomLabel.textContent = `ROOM: ${this.roomCode}`;
+          if (roomLabel) roomLabel.textContent = \`ROOM: \${this.roomCode}\`;
 
-          const controllerUrl = `${window.location.origin}${window.location.pathname}?c=1&room=${this.roomCode}`;
+          const controllerUrl = \`\${window.location.origin}\${window.location.pathname}?c=1&room=\${this.roomCode}\`;
           const qrContainer = document.getElementById('startQrCode');
           if (qrContainer && typeof QRCode !== 'undefined') {
             qrContainer.innerHTML = '';
@@ -2468,7 +2787,7 @@
 
           if (typeof Peer !== 'undefined') {
             try {
-              this.peer = new Peer(`neonkraken-${this.roomCode.toLowerCase()}`);
+              this.peer = new Peer(\`neonkraken-\${this.roomCode.toLowerCase()}\`);
               this.peer.on('connection', (conn) => {
                 conn.on('data', (data) => {
                   if (!data) return;
@@ -2584,7 +2903,7 @@
             if (this.p1.isDead && this.p2.isDead) {
               this.state = 'GAMEOVER';
               document.getElementById('gameOverModal').classList.remove('hidden');
-              document.getElementById('finalScoreText').textContent = `FINAL SCORE: ${this.score}`;
+              document.getElementById('finalScoreText').textContent = \`FINAL SCORE: \${this.score}\`;
             }
 
             // 2. UPDATE CLAW MACHINE HAZARDS
@@ -2654,7 +2973,7 @@
                     sound.playKeycardPickup();
                     this.shake.add(0.4);
                     this.particles.ring(player.pos.x, player.pos.y, 40, '#39ff14', 400);
-                    this.popups.spawn(player.pos.x, player.pos.y - 25, `KEY ${c.id} COLLECTED!`, '#00f0ff', 1.3);
+                    this.popups.spawn(player.pos.x, player.pos.y - 25, \`KEY \${c.id} COLLECTED!\`, '#00f0ff', 1.3);
 
                     if (this.keycardsDeposited === 1) {
                       // Stage 1 (Arcade Wing) cleared -> unlock Stage 2 (East Wing)
@@ -2679,7 +2998,7 @@
 
                       const earned = 100 * this.multiplier;
                       this.score += earned;
-                      this.popups.spawn(c.pos.x, c.pos.y - 20, `+${earned} (${this.multiplier}X)`, '#ffe600', 1.2);
+                      this.popups.spawn(c.pos.x, c.pos.y - 20, \`+\${earned} (\${this.multiplier}X)\`, '#ffe600', 1.2);
                       this.particles.burst(c.pos.x, c.pos.y, 14, '#ffe600', 200);
                       sound.playCoin(this.multiplier);
                     } else if (c.type === 'speed') {
@@ -2717,14 +3036,14 @@
                   document.getElementById('victoryCard').classList.add('beach-scene');
                   document.getElementById('victorySubtitle').textContent = "You escaped! The Piranhas ate the Octopus!";
                   document.getElementById('victoryModal').classList.remove('hidden');
-                  document.getElementById('victoryScoreText').textContent = `FINAL SCORE: ${this.score}`;
+                  document.getElementById('victoryScoreText').textContent = \`FINAL SCORE: \${this.score}\`;
                   sound.playExitUnlocked();
                 } else {
                   this.state = 'GAMEOVER';
                   this.shake.add(0.8);
                   document.getElementById('gameOverSubtitle').textContent = "Wrong door! You were eaten by Piranhas!";
                   document.getElementById('gameOverModal').classList.remove('hidden');
-                  document.getElementById('finalScoreText').textContent = `FINAL SCORE: ${this.score}`;
+                  document.getElementById('finalScoreText').textContent = \`FINAL SCORE: \${this.score}\`;
                   sound.playDamage();
                 }
                 break;
@@ -2771,7 +3090,7 @@
                 this.shake.add(0.8);
                 document.getElementById('gameOverSubtitle').textContent = 'The facility flooded completely! You drowned in the depths.';
                 document.getElementById('gameOverModal').classList.remove('hidden');
-                document.getElementById('finalScoreText').textContent = `FINAL SCORE: ${this.score}`;
+                document.getElementById('finalScoreText').textContent = \`FINAL SCORE: \${this.score}\`;
                 sound.playDamage();
               }
             }
@@ -2788,21 +3107,21 @@
           const p1HpBar = document.getElementById('p1HpBar');
           const p1HpText = document.getElementById('p1HpText');
           const p1DashBar = document.getElementById('p1DashBar');
-          if (p1HpBar) p1HpBar.style.width = `${Math.max(0, this.p1.hp)}%`;
-          if (p1HpText) p1HpText.textContent = this.p1.isDead ? 'DOWN' : `${Math.ceil(this.p1.hp)}%`;
+          if (p1HpBar) p1HpBar.style.width = \`\${Math.max(0, this.p1.hp)}%\`;
+          if (p1HpText) p1HpText.textContent = this.p1.isDead ? 'DOWN' : \`\${Math.ceil(this.p1.hp)}%\`;
           if (p1DashBar) {
             const p1d = this.p1.dashCooldownTimer <= 0 ? 100 : (1 - this.p1.dashCooldownTimer / this.p1.dashCooldown) * 100;
-            p1DashBar.style.width = `${p1d}%`;
+            p1DashBar.style.width = \`\${p1d}%\`;
           }
 
           const p2HpBar = document.getElementById('p2HpBar');
           const p2HpText = document.getElementById('p2HpText');
           const p2DashBar = document.getElementById('p2DashBar');
-          if (p2HpBar) p2HpBar.style.width = `${Math.max(0, this.p2.hp)}%`;
-          if (p2HpText) p2HpText.textContent = this.p2.isDead ? 'DOWN' : `${Math.ceil(this.p2.hp)}%`;
+          if (p2HpBar) p2HpBar.style.width = \`\${Math.max(0, this.p2.hp)}%\`;
+          if (p2HpText) p2HpText.textContent = this.p2.isDead ? 'DOWN' : \`\${Math.ceil(this.p2.hp)}%\`;
           if (p2DashBar) {
             const p2d = this.p2.dashCooldownTimer <= 0 ? 100 : (1 - this.p2.dashCooldownTimer / this.p2.dashCooldown) * 100;
-            p2DashBar.style.width = `${p2d}%`;
+            p2DashBar.style.width = \`\${p2d}%\`;
           }
 
           const stageNames = ['STAGE 1 // ARCADE WING', 'STAGE 2 // BOWLING CORRIDOR', 'STAGE 3 // NORTH WING'];
@@ -2811,7 +3130,7 @@
 
           // Update Stage Key Progress Slots
           for (let i = 1; i <= 3; i++) {
-            const slot = document.getElementById(`slot${i}`);
+            const slot = document.getElementById(\`slot\${i}\`);
             slot.className = 'key-slot';
             if (this.keycardsDeposited >= i) {
               slot.classList.add('deposited');
@@ -2831,18 +3150,18 @@
           const p1OxyBar = document.getElementById('p1OxyBar');
           const p1OxyText = document.getElementById('p1OxyText');
           if (p1OxyBar) {
-            p1OxyBar.style.width = `${Math.max(0, this.oxygen.p1)}%`;
+            p1OxyBar.style.width = \`\${Math.max(0, this.oxygen.p1)}%\`;
             p1OxyBar.classList.toggle('low', this.oxygen.p1 < 30);
           }
-          if (p1OxyText) p1OxyText.textContent = `${Math.ceil(this.oxygen.p1)}%`;
+          if (p1OxyText) p1OxyText.textContent = \`\${Math.ceil(this.oxygen.p1)}%\`;
 
           const p2OxyBar = document.getElementById('p2OxyBar');
           const p2OxyText = document.getElementById('p2OxyText');
           if (p2OxyBar) {
-            p2OxyBar.style.width = `${Math.max(0, this.oxygen.p2)}%`;
+            p2OxyBar.style.width = \`\${Math.max(0, this.oxygen.p2)}%\`;
             p2OxyBar.classList.toggle('low', this.oxygen.p2 < 30);
           }
-          if (p2OxyText) p2OxyText.textContent = `${Math.ceil(this.oxygen.p2)}%`;
+          if (p2OxyText) p2OxyText.textContent = \`\${Math.ceil(this.oxygen.p2)}%\`;
 
           // Flood Timer & Rising Water Level
           const floodTimerText = document.getElementById('floodTimerText');
@@ -2851,17 +3170,17 @@
           if (floodTimerText) {
             const mins = Math.floor(this.floodTimer / 60);
             const secs = Math.floor(this.floodTimer % 60);
-            floodTimerText.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+            floodTimerText.textContent = \`\${mins}:\${secs.toString().padStart(2, '0')}\`;
           }
           if (floodLabel) floodLabel.classList.toggle('critical', this.floodTimer < 30);
           if (waterLevelBar) {
             const p = Math.max(0, Math.min(1, (this.floodDuration - this.floodTimer) / this.floodDuration));
-            waterLevelBar.style.width = `${p * 100}%`;
+            waterLevelBar.style.width = \`\${p * 100}%\`;
           }
 
           document.getElementById('scoreDisplay').textContent = this.score.toLocaleString();
           const mulBadge = document.getElementById('multiplierDisplay');
-          mulBadge.textContent = `${this.multiplier}X MULTIPLIER`;
+          mulBadge.textContent = \`\${this.multiplier}X MULTIPLIER\`;
           mulBadge.style.color = this.multiplier > 1 ? '#ffe600' : '#888';
         }
 
@@ -3016,9 +3335,9 @@
         let conn = null;
 
         peer.on('open', () => {
-          conn = peer.connect(`neonkraken-${room.toLowerCase()}`, { reliable: false });
+          conn = peer.connect(\`neonkraken-\${room.toLowerCase()}\`, { reliable: false });
           conn.on('open', () => {
-            statusPill.textContent = `CONNECTED: ${room.toUpperCase()}`;
+            statusPill.textContent = \`CONNECTED: \${room.toUpperCase()}\`;
             statusPill.style.color = '#39ff14';
             if (navigator.vibrate) navigator.vibrate([30, 40, 30]);
           });
@@ -3079,6 +3398,10 @@
         }
       });
     })();
+  <\/script>
+</body>
+</html>
+`;
   </script>
 </body>
 </html>
