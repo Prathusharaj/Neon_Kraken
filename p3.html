@@ -1,0 +1,2878 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>NEON KRAKEN // Arcade Facility Escape</title>
+  
+  <!-- Standalone Vendor Libraries with CDN fallbacks -->
+  <script src="vendor/peerjs.min.js"></script>
+  <script>
+    if (typeof Peer === 'undefined') {
+      document.write('<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"><\/script>');
+    }
+  </script>
+  <script src="vendor/qrcode.min.js"></script>
+  <script>
+    if (typeof QRCode === 'undefined') {
+      document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>');
+    }
+  </script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@600;700&display=swap');
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #03050c;
+      font-family: 'Rajdhani', sans-serif;
+      color: #ffffff;
+    }
+
+    #gameCanvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 1;
+    }
+
+    .crt-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.28) 50%),
+                  radial-gradient(circle at center, transparent 60%, rgba(0, 5, 20, 0.85) 100%);
+      background-size: 100% 4px, 100% 100%;
+      z-index: 15;
+    }
+
+    /* HUD OVERLAY */
+    .hud-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 20;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 16px 24px;
+    }
+
+    .hud-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      width: 100%;
+    }
+
+    .players-panel {
+      display: flex;
+      gap: 14px;
+    }
+
+    .player-card {
+      background: rgba(6, 15, 30, 0.88);
+      border: 1px solid #00f0ff;
+      border-radius: 4px;
+      padding: 8px 12px;
+      min-width: 170px;
+      box-shadow: 0 0 12px rgba(0, 240, 255, 0.25);
+    }
+
+    .player-card.p2-card {
+      border-color: #ffe600;
+      box-shadow: 0 0 12px rgba(255, 230, 0, 0.25);
+    }
+
+    .card-title {
+      font-family: 'Orbitron', monospace;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      margin-bottom: 4px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .p1-color { color: #00f0ff; }
+    .p2-color { color: #ffe600; }
+
+    .bar-bg {
+      width: 100%;
+      height: 9px;
+      background: rgba(10, 20, 40, 0.9);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-bottom: 3px;
+    }
+
+    .bar-fill {
+      height: 100%;
+      transition: width 0.15s ease-out;
+    }
+
+    .p1-hp { background: #00f0ff; box-shadow: 0 0 8px #00f0ff; }
+    .p2-hp { background: #ffe600; box-shadow: 0 0 8px #ffe600; }
+    .dash-bar { height: 4px; background: #39ff14; box-shadow: 0 0 6px #39ff14; }
+
+    /* MISSION STATUS & OBJECTIVE FLOW */
+    .mission-panel {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background: rgba(6, 12, 28, 0.92);
+      border: 1px solid #ff0077;
+      padding: 8px 18px;
+      border-radius: 6px;
+      box-shadow: 0 0 16px rgba(255, 0, 119, 0.3);
+      min-width: 340px;
+    }
+
+    .boss-name {
+      font-family: 'Orbitron', monospace;
+      font-size: 13px;
+      font-weight: 900;
+      color: #ff0077;
+      letter-spacing: 2px;
+      margin-bottom: 3px;
+    }
+
+    .boss-hp-bar {
+      width: 100%;
+      height: 10px;
+      background: #1a0515;
+      border: 1px solid #ff0077;
+      border-radius: 2px;
+      overflow: hidden;
+      margin-bottom: 5px;
+    }
+
+    .boss-hp-fill {
+      height: 100%;
+      background: #ff0077;
+      box-shadow: 0 0 12px #ff0077;
+      transition: width 0.2s ease-out;
+    }
+
+    /* KEYCARD RETURN PROTOCOL */
+    .objective-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .keycard-slots {
+      display: flex;
+      gap: 6px;
+    }
+
+    .key-slot {
+      width: 22px;
+      height: 14px;
+      border: 1px dashed rgba(0, 240, 255, 0.4);
+      border-radius: 2px;
+      background: rgba(0, 30, 50, 0.4);
+      transition: all 0.3s;
+    }
+
+    .key-slot.deposited {
+      border: 1px solid #39ff14;
+      background: #39ff14;
+      box-shadow: 0 0 12px #39ff14;
+    }
+
+    .key-slot.carried {
+      border: 1px solid #ffe600;
+      background: #ffe600;
+      box-shadow: 0 0 10px #ffe600;
+      animation: pulse 0.4s infinite alternate;
+    }
+
+    .objective-status-text {
+      font-family: 'Orbitron', monospace;
+      font-size: 11px;
+      font-weight: 700;
+      color: #00f0ff;
+      letter-spacing: 1px;
+    }
+
+    .objective-status-text.ready-deposit {
+      color: #ffe600;
+      text-shadow: 0 0 10px #ffe600;
+      animation: pulse 0.5s infinite alternate;
+    }
+
+    .objective-status-text.escape-ready {
+      color: #39ff14;
+      text-shadow: 0 0 12px #39ff14;
+      animation: pulse 0.4s infinite alternate;
+    }
+
+    /* SCORE & MULTIPLIER (TOP RIGHT) */
+    .score-panel {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      min-width: 170px;
+    }
+
+    .score-title {
+      font-family: 'Orbitron', monospace;
+      font-size: 11px;
+      color: #00f0ff;
+      letter-spacing: 2px;
+    }
+
+    .score-number {
+      font-family: 'Orbitron', monospace;
+      font-size: 24px;
+      font-weight: 900;
+      color: #ffffff;
+      text-shadow: 0 0 12px rgba(0, 240, 255, 0.8);
+    }
+
+    .multiplier-badge {
+      font-family: 'Orbitron', monospace;
+      font-size: 14px;
+      font-weight: 900;
+      color: #ffe600;
+      text-shadow: 0 0 10px #ffe600;
+    }
+
+    /* HUD BOTTOM BAR */
+    .hud-bottom {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+    }
+
+    .controls-help {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.7);
+      letter-spacing: 1px;
+    }
+
+    .controls-help kbd {
+      background: rgba(0, 240, 255, 0.15);
+      border: 1px solid #00f0ff;
+      padding: 2px 6px;
+      border-radius: 3px;
+      color: #00f0ff;
+      font-family: 'Orbitron', monospace;
+    }
+
+    .hud-buttons {
+      pointer-events: auto;
+      display: flex;
+      gap: 10px;
+    }
+
+    .btn-cyber {
+      background: rgba(10, 25, 45, 0.85);
+      border: 1px solid #00f0ff;
+      color: #00f0ff;
+      font-family: 'Orbitron', monospace;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 8px 14px;
+      border-radius: 4px;
+      cursor: pointer;
+      letter-spacing: 1.5px;
+      box-shadow: 0 0 8px rgba(0, 240, 255, 0.2);
+      transition: all 0.2s;
+    }
+
+    .btn-cyber:hover {
+      background: #00f0ff;
+      color: #03050c;
+      box-shadow: 0 0 16px #00f0ff;
+    }
+
+    /* FULLSCREEN MODAL OVERLAYS */
+    .overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(4, 7, 16, 0.94);
+      backdrop-filter: blur(10px);
+      z-index: 50;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      transition: opacity 0.3s ease;
+    }
+
+    .overlay.hidden {
+      display: none !important;
+    }
+
+    .card-modal {
+      background: rgba(8, 16, 32, 0.96);
+      border: 2px solid #00f0ff;
+      box-shadow: 0 0 35px rgba(0, 240, 255, 0.4);
+      border-radius: 8px;
+      padding: 30px 38px;
+      text-align: center;
+      max-width: 650px;
+      width: 92%;
+    }
+
+    .game-hero-title {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 32px;
+      font-weight: 900;
+      letter-spacing: 4px;
+      color: #ffffff;
+      text-shadow: 0 0 18px #00f0ff, 0 0 36px #ff0077;
+      margin-bottom: 6px;
+    }
+
+    .game-subtitle {
+      font-size: 14px;
+      letter-spacing: 3px;
+      color: #00f0ff;
+      margin-bottom: 18px;
+    }
+
+    .story-box {
+      background: rgba(0, 240, 255, 0.05);
+      border: 1px solid rgba(0, 240, 255, 0.25);
+      border-radius: 6px;
+      padding: 12px 16px;
+      font-size: 14px;
+      line-height: 1.5;
+      color: #cfefff;
+      margin-bottom: 20px;
+      text-align: left;
+    }
+
+    .story-box b {
+      color: #ffe600;
+    }
+
+    .coop-section {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 22px;
+      text-align: left;
+    }
+
+    .coop-col {
+      background: rgba(10, 22, 44, 0.7);
+      border: 1px solid rgba(0, 240, 255, 0.2);
+      padding: 12px;
+      border-radius: 6px;
+    }
+
+    .coop-col.p2-col {
+      border-color: rgba(255, 230, 0, 0.3);
+    }
+
+    .qr-holder {
+      background: #060a17;
+      padding: 6px;
+      border-radius: 6px;
+      display: inline-block;
+      margin-top: 6px;
+      border: 1px solid #ffe600;
+      box-shadow: 0 0 12px rgba(255, 230, 0, 0.25);
+    }
+
+    .primary-start-btn {
+      background: #00f0ff;
+      color: #03050c;
+      font-family: 'Orbitron', monospace;
+      font-size: 17px;
+      font-weight: 900;
+      padding: 13px 36px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      letter-spacing: 2px;
+      box-shadow: 0 0 24px #00f0ff;
+      width: 100%;
+      transition: all 0.2s ease;
+    }
+
+    .primary-start-btn:hover {
+      background: #ffffff;
+      box-shadow: 0 0 35px #00f0ff, 0 0 50px #ff0077;
+      transform: scale(1.02);
+    }
+
+    /* MOBILE CONTROLLER VIEW (LOADED ON PHONE VIA ?c=1) */
+    #mobileControllerView {
+      display: none;
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 100;
+      background: #03050c;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 16px;
+      touch-action: none;
+    }
+
+    .mobile-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(10, 20, 40, 0.85);
+      border: 1px solid #ffe600;
+      border-radius: 6px;
+      padding: 10px 16px;
+    }
+
+    .mobile-body {
+      display: flex;
+      flex: 1;
+      justify-content: space-around;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .beach-scene {
+      background: linear-gradient(180deg, #7fd8ff 0%, #7fd8ff 45%, #ffe9a8 46%, #f4d087 100%) !important;
+      color: #1a3d5c !important;
+    }
+    .beach-scene .game-hero-title { color: #ff6b35 !important; text-shadow: 0 0 18px #ffcf4d !important; }
+    .beach-scene #victoryScoreText { color: #1a3d5c !important; }
+
+    .dpad-container {
+      display: grid;
+      grid-template-columns: repeat(3, 58px);
+      grid-template-rows: repeat(3, 58px);
+      gap: 6px;
+    }
+
+    .dpad-btn {
+      background: rgba(20, 35, 60, 0.85);
+      border: 2px solid #ffe600;
+      border-radius: 8px;
+      color: #ffe600;
+      font-family: 'Orbitron', monospace;
+      font-size: 20px;
+      font-weight: 900;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      box-shadow: 0 0 10px rgba(255, 230, 0, 0.3);
+      outline: none;
+    }
+
+    .dpad-btn:active, .dpad-btn.pressed {
+      background: #ffe600;
+      color: #03050c;
+      box-shadow: 0 0 20px #ffe600;
+    }
+
+    .mobile-dash-btn {
+      width: 130px;
+      height: 130px;
+      border-radius: 50%;
+      background: radial-gradient(circle, #ff0077 20%, #660033 90%);
+      border: 3px solid #ffffff;
+      color: #ffffff;
+      font-family: 'Orbitron', monospace;
+      font-size: 16px;
+      font-weight: 900;
+      letter-spacing: 2px;
+      box-shadow: 0 0 25px rgba(255, 0, 119, 0.6);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      outline: none;
+    }
+
+    .mobile-dash-btn:active {
+      transform: scale(0.92);
+      background: #ffffff;
+      color: #ff0077;
+      box-shadow: 0 0 40px #ff0077;
+    }
+
+    @keyframes pulse {
+      from { opacity: 0.6; transform: scale(0.97); }
+      to { opacity: 1; transform: scale(1.03); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- DESKTOP GAME CANVAS & HUD -->
+  <div id="desktopGameView">
+    <canvas id="gameCanvas"></canvas>
+    <div class="crt-overlay"></div>
+
+    <!-- HUD Overlay -->
+    <div id="hudOverlay" class="hud-overlay">
+      <div class="hud-top">
+        <!-- Players Info (P1 WASD, P2 Arrows) -->
+        <div class="players-panel">
+          <!-- Player 1 -->
+          <div class="player-card">
+            <div class="card-title p1-color">
+              <span>PLAYER 1 (WASD)</span>
+              <span id="p1HpText">100%</span>
+            </div>
+            <div class="bar-bg">
+              <div id="p1HpBar" class="bar-fill p1-hp" style="width: 100%;"></div>
+            </div>
+            <div class="bar-bg" style="height: 4px;">
+              <div id="p1DashBar" class="bar-fill dash-bar" style="width: 100%;"></div>
+            </div>
+          </div>
+
+          <!-- Player 2 -->
+          <div class="player-card p2-card">
+            <div class="card-title p2-color">
+              <span>PLAYER 2 (ARROWS)</span>
+              <span id="p2HpText">100%</span>
+            </div>
+            <div class="bar-bg">
+              <div id="p2HpBar" class="bar-fill p2-hp" style="width: 100%;"></div>
+            </div>
+            <div class="bar-bg" style="height: 4px;">
+              <div id="p2DashBar" class="bar-fill dash-bar" style="width: 100%;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Mission Status & Objective Return Flow -->
+        <div class="mission-panel">
+          <div class="boss-name" id="bossStateTitle">STAGE 1 // ARCADE WING</div>
+
+          <!-- Stage Key Progress Slots -->
+          <div class="objective-row">
+            <span style="font-family: 'Orbitron'; font-size: 11px; color: #00f0ff;">KEYS:</span>
+            <div class="keycard-slots">
+              <div id="slot1" class="key-slot"></div>
+              <div id="slot2" class="key-slot"></div>
+              <div id="slot3" class="key-slot"></div>
+            </div>
+            <span id="objectiveStatusText" class="objective-status-text">FIND THE KEY // AVOID THE BOSS &amp; CLAW</span>
+          </div>
+        </div>
+
+        <!-- Score & Multipliers -->
+        <div class="score-panel">
+          <div class="score-title">SCORE</div>
+          <div id="scoreDisplay" class="score-number">0</div>
+          <div id="multiplierDisplay" class="multiplier-badge">1X MULTIPLIER</div>
+        </div>
+      </div>
+
+      <!-- HUD Bottom -->
+      <div class="hud-bottom">
+        <div class="controls-help">
+          P1: <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> + <kbd>SPACE</kbd> DASH | 
+          P2: <kbd>↑</kbd><kbd>←</kbd><kbd>↓</kbd><kbd>→</kbd> + <kbd>ENTER</kbd> DASH / PHONE | 
+          <span style="color:#ffe600;">COLLECT THE STAGE KEY TO UNLOCK THE NEXT WING</span>
+        </div>
+        <div class="hud-buttons">
+          <button id="muteBtn" class="btn-cyber">🔊 AUDIO ON</button>
+          <button id="restartQuickBtn" class="btn-cyber">🔄 RESTART</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- START SCREEN MODAL WITH LIVE QR CODE -->
+    <div id="startModal" class="overlay">
+      <div class="card-modal">
+        <h1 class="game-hero-title">NEON KRAKEN</h1>
+        <p class="game-subtitle">ARCADE CORRIDOR ESCAPE // VOXEL HEROES</p>
+
+        <div class="story-box">
+          <b>CRITICAL FACILITY MISSION:</b>
+          Fight through 3 distinct sequential stages, starting in the <b>Arcade Wing</b>. 
+          Collect each stage's <b>Key</b> to unlock the next wing. 
+          Beware of the <b>overhead Arcade Claw Machine</b> (dodge when WARNING flashes!) and the hunting <b>Octopus Boss</b>!
+        </div>
+
+        <div class="coop-section">
+          <div class="coop-col">
+            <div style="font-family: 'Orbitron'; font-size: 12px; color: #00f0ff; margin-bottom: 6px;">
+              <b>PLAYER 1 (DESKTOP)</b>
+            </div>
+            <div style="font-size: 13px; line-height: 1.4; color: #a0c0dd;">
+              Movement: <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><br>
+              Hyper-Dash: <kbd>SPACEBAR</kbd><br>
+              Avatar: Cyan Blocky Cyber Hero
+            </div>
+          </div>
+
+          <div class="coop-col p2-col">
+            <div style="font-family: 'Orbitron'; font-size: 12px; color: #ffe600; margin-bottom: 6px;">
+              <b>PLAYER 2 (ARROWS OR PHONE)</b>
+            </div>
+            <div style="font-size: 13px; line-height: 1.4; color: #ddcc99;">
+              Keyboard: <kbd>ARROWS</kbd> + <kbd>ENTER</kbd><br>
+              Or scan to use phone D-pad:
+            </div>
+            <div class="qr-holder" id="startQrCode"></div>
+            <div id="roomCodeLabel" style="font-family: 'Orbitron'; font-size: 10px; color: #ffe600; margin-top: 4px;">ROOM: GENERATING...</div>
+          </div>
+        </div>
+
+        <button id="startGameBtn" class="primary-start-btn">ENTER ARCADE & ESCAPE</button>
+      </div>
+    </div>
+
+    <!-- GAME OVER MODAL -->
+    <div id="gameOverModal" class="overlay hidden">
+      <div class="card-modal" style="border-color: #ff0055; box-shadow: 0 0 35px rgba(255, 0, 85, 0.5);">
+        <h1 class="game-hero-title" style="text-shadow: 0 0 20px #ff0055;">GAME OVER</h1>
+        <p id="gameOverSubtitle" class="game-subtitle" style="color: #ff0055;">CAUGHT BY THE KRAKEN IN THE ARCADE</p>
+        <div id="finalScoreText" style="font-family: 'Orbitron'; font-size: 24px; color: #ffffff; margin: 20px 0;">FINAL SCORE: 0</div>
+        <button id="retryGameBtn" class="primary-start-btn" style="background: #ff0055; box-shadow: 0 0 25px #ff0055;">RETRY INFILTRATION</button>
+      </div>
+    </div>
+
+    <!-- VICTORY MODAL -->
+    <div id="victoryModal" class="overlay hidden">
+      <div id="victoryCard" class="card-modal" style="border-color: #39ff14; box-shadow: 0 0 35px rgba(57, 255, 20, 0.5);">
+        <h1 class="game-hero-title" style="text-shadow: 0 0 20px #39ff14;">FACILITY ESCAPED!</h1>
+        <p id="victorySubtitle" class="game-subtitle" style="color: #39ff14;">ALL KEYCARDS RETURNED // BLAST DOOR BREACHED</p>
+        <div id="victoryScoreText" style="font-family: 'Orbitron'; font-size: 24px; color: #ffffff; margin: 20px 0;">FINAL SCORE: 0</div>
+        <button id="victoryBtn" class="primary-start-btn" style="background: #39ff14; color: #03050c; box-shadow: 0 0 25px #39ff14;">PLAY AGAIN</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MOBILE CONTROLLER VIEW (LOADED ON PHONE VIA ?c=1) -->
+  <div id="mobileControllerView">
+    <div class="mobile-header">
+      <span style="font-family: 'Orbitron'; font-size: 14px; color: #ffe600; font-weight: 900;">PLAYER 2 GAMEPAD</span>
+      <span id="mobileStatusPill" style="font-family: 'Orbitron'; font-size: 11px; color: #00f0ff;">CONNECTING...</span>
+    </div>
+
+    <div class="mobile-body">
+      <!-- 4-WAY D-PAD -->
+      <div class="dpad-container">
+        <div></div>
+        <button id="btnUp" class="dpad-btn">▲</button>
+        <div></div>
+        <button id="btnLeft" class="dpad-btn">◀</button>
+        <div style="display:flex; justify-content:center; align-items:center; color:#ffe600; font-family:'Orbitron'; font-size:10px;">P2</div>
+        <button id="btnRight" class="dpad-btn">▶</button>
+        <div></div>
+        <button id="btnDown" class="dpad-btn">▼</button>
+        <div></div>
+      </div>
+
+      <!-- DASH BUTTON -->
+      <button id="btnDash" class="mobile-dash-btn">
+        <span>HYPER</span>
+        <span>DASH</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- COMPLETE INLINE JAVASCRIPT GAME ENGINE -->
+  <script>
+    (function() {
+      // -------------------------------------------------------------
+      // 1. ROUTE CHECK: MOBILE CONTROLLER OR DESKTOP GAME
+      // -------------------------------------------------------------
+      const urlParams = new URLSearchParams(window.location.search);
+      const isMobileController = urlParams.get('c') === '1' || urlParams.get('controller') === 'true';
+      const targetRoom = urlParams.get('room') || '';
+
+      if (isMobileController) {
+        initMobileController(targetRoom);
+        return;
+      }
+
+      // -------------------------------------------------------------
+      // 2. PROCEDURAL SOUND SYNTHESIZER (WEB AUDIO API)
+      // -------------------------------------------------------------
+      class SoundEngine {
+        constructor() {
+          this.ctx = null;
+          this.muted = false;
+        }
+
+        ensure() {
+          if (!this.ctx) {
+            const AC = window.AudioContext || window.webkitAudioContext;
+            if (AC) this.ctx = new AC();
+          }
+          if (this.ctx && this.ctx.state === 'suspended') {
+            this.ctx.resume();
+          }
+        }
+
+        toggleMute() {
+          this.muted = !this.muted;
+          return this.muted;
+        }
+
+        playCoin(mul = 1) {
+          if (this.muted) return;
+          this.ensure();
+          if (!this.ctx) return;
+          const t = this.ctx.currentTime;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          const freq = 600 + Math.min(mul * 80, 500);
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, t);
+          osc.frequency.exponentialRampToValueAtTime(freq * 1.6, t + 0.1);
+          gain.gain.setValueAtTime(0.18, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(t);
+          osc.stop(t + 0.12);
+        }
+
+        playKeycardPickup() {
+          if (this.muted) return;
+          this.ensure();
+          if (!this.ctx) return;
+          const t = this.ctx.currentTime;
+          [523.25, 659.25, 783.99, 1046.5].forEach((freq, i) => {
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            const noteT = t + i * 0.05;
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(freq, noteT);
+            gain.gain.setValueAtTime(0.2, noteT);
+            gain.gain.exponentialRampToValueAtTime(0.001, noteT + 0.14);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(noteT);
+            osc.stop(noteT + 0.14);
+          });
+        }
+
+        playKeycardDeposit() {
+          if (this.muted) return;
+          this.ensure();
+          if (!this.ctx) return;
+          const t = this.ctx.currentTime;
+          [440, 554, 659, 880, 1108, 1318].forEach((freq, i) => {
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            const noteT = t + i * 0.06;
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, noteT);
+            gain.gain.setValueAtTime(0.25, noteT);
+            gain.gain.exponentialRampToValueAtTime(0.001, noteT + 0.25);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(noteT);
+            osc.stop(noteT + 0.25);
+          });
+        }
+
+        playPowerup() {
+          if (this.muted) return;
+          this.ensure();
+          if (!this.ctx) return;
+          const t = this.ctx.currentTime;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(320, t);
+          osc.frequency.exponentialRampToValueAtTime(950, t + 0.22);
+          gain.gain.setValueAtTime(0.2, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(t);
+          osc.stop(t + 0.25);
+        }
+
+        playDash() {
+          if (this.muted) return;
+          this.ensure();
+          if (!this.ctx) return;
+          const t = this.ctx.currentTime;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(450, t);
+          osc.frequency.exponentialRampToValueAtTime(120, t + 0.16);
+          gain.gain.setValueAtTime(0.3, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.16);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(t);
+          osc.stop(t + 0.16);
+        }
+
+        playClawWarning() {
+          if (this.muted) return;
+          this.ensure();
+          if (!this.ctx) return;
+          const t = this.ctx.currentTime;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(800, t);
+          osc.frequency.linearRampToValueAtTime(1600, t + 0.2);
+          gain.gain.setValueAtTime(0.15, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(t);
+          osc.stop(t + 0.22);
+        }
+
+        playClawSlam() {
+          if (this.muted) return;
+          this.ensure();
+          if (!this.ctx) return;
+          const t = this.ctx.currentTime;
+          // Metallic slam
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'square';
+          osc.frequency.setValueAtTime(180, t);
+          osc.frequency.exponentialRampToValueAtTime(40, t + 0.3);
+          gain.gain.setValueAtTime(0.4, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(t);
+          osc.stop(t + 0.35);
+        }
+
+        playBossTelegraph() {
+          if (this.muted) return;
+          this.ensure();
+          if (!this.ctx) return;
+          const t = this.ctx.currentTime;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(140, t);
+          osc.frequency.linearRampToValueAtTime(480, t + 0.7);
+          gain.gain.setValueAtTime(0.05, t);
+          gain.gain.linearRampToValueAtTime(0.25, t + 0.65);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.75);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(t);
+          osc.stop(t + 0.75);
+        }
+
+        playBossRoar() {
+          if (this.muted) return;
+          this.ensure();
+          if (!this.ctx) return;
+          const t = this.ctx.currentTime;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(160, t);
+          osc.frequency.exponentialRampToValueAtTime(35, t + 0.45);
+          gain.gain.setValueAtTime(0.35, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(t);
+          osc.stop(t + 0.5);
+        }
+
+        playDamage() {
+          if (this.muted) return;
+          this.ensure();
+          if (!this.ctx) return;
+          const t = this.ctx.currentTime;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'square';
+          osc.frequency.setValueAtTime(180, t);
+          osc.frequency.exponentialRampToValueAtTime(50, t + 0.18);
+          gain.gain.setValueAtTime(0.3, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(t);
+          osc.stop(t + 0.2);
+        }
+
+        playExitUnlocked() {
+          if (this.muted) return;
+          this.ensure();
+          if (!this.ctx) return;
+          const t = this.ctx.currentTime;
+          [523.25, 659.25, 783.99, 1046.5, 1318.5].forEach((freq, i) => {
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            const noteT = t + i * 0.08;
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, noteT);
+            gain.gain.setValueAtTime(0.25, noteT);
+            gain.gain.exponentialRampToValueAtTime(0.001, noteT + 0.35);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(noteT);
+            osc.stop(noteT + 0.35);
+          });
+        }
+      }
+
+      const sound = new SoundEngine();
+
+      // -------------------------------------------------------------
+      // 3. VISUAL JUICE: SCREEN SHAKE, PARTICLES & TEXT POPUPS
+      // -------------------------------------------------------------
+      class ScreenShake {
+        constructor() {
+          this.trauma = 0;
+          this.decay = 1.4;
+          this.offset = { x: 0, y: 0 };
+          this.rotation = 0;
+          this.time = 0;
+        }
+
+        add(amount) {
+          this.trauma = Math.min(1.0, this.trauma + amount);
+        }
+
+        update(dt) {
+          if (this.trauma > 0) {
+            this.trauma = Math.max(0, this.trauma - this.decay * dt);
+            this.time += dt * 32;
+            const shake = this.trauma * this.trauma;
+            this.offset.x = (Math.sin(this.time * 1.2) * 0.7 + Math.cos(this.time * 2.3) * 0.3) * 24 * shake;
+            this.offset.y = (Math.cos(this.time * 1.4) * 0.7 + Math.sin(this.time * 2.1) * 0.3) * 24 * shake;
+            this.rotation = Math.sin(this.time * 1.6) * 0.04 * shake;
+          } else {
+            this.offset.x = 0;
+            this.offset.y = 0;
+            this.rotation = 0;
+          }
+        }
+
+        apply(ctx) {
+          if (this.trauma > 0.01) {
+            ctx.translate(this.offset.x, this.offset.y);
+            ctx.rotate(this.rotation);
+          }
+        }
+      }
+
+      class ParticlePool {
+        constructor(size = 800) {
+          this.particles = new Array(size).fill(0).map(() => ({
+            active: false, x: 0, y: 0, vx: 0, vy: 0, color: '#00f0ff',
+            size: 3, life: 0, maxLife: 1, alpha: 1, drag: 0.95
+          }));
+          this.next = 0;
+        }
+
+        burst(x, y, count = 20, color = '#00f0ff', speed = 240, size = 3.5, life = 0.6) {
+          for (let i = 0; i < count; i++) {
+            const p = this.particles[this.next];
+            this.next = (this.next + 1) % this.particles.length;
+            const angle = Math.random() * Math.PI * 2;
+            const spd = (Math.random() * 0.8 + 0.2) * speed;
+            p.active = true;
+            p.x = x;
+            p.y = y;
+            p.vx = Math.cos(angle) * spd;
+            p.vy = Math.sin(angle) * spd;
+            p.color = color;
+            p.size = size * (Math.random() * 0.5 + 0.8);
+            p.maxLife = life * (Math.random() * 0.4 + 0.8);
+            p.life = p.maxLife;
+            p.drag = 0.94;
+          }
+        }
+
+        ring(x, y, count = 28, color = '#ff0077', speed = 280) {
+          for (let i = 0; i < count; i++) {
+            const p = this.particles[this.next];
+            this.next = (this.next + 1) % this.particles.length;
+            const angle = (i / count) * Math.PI * 2;
+            p.active = true;
+            p.x = x;
+            p.y = y;
+            p.vx = Math.cos(angle) * speed;
+            p.vy = Math.sin(angle) * speed;
+            p.color = color;
+            p.size = 3.5;
+            p.maxLife = 0.5;
+            p.life = 0.5;
+            p.drag = 0.95;
+          }
+        }
+
+        trail(x, y, vx, vy, color = '#00f0ff') {
+          const p = this.particles[this.next];
+          this.next = (this.next + 1) % this.particles.length;
+          p.active = true;
+          p.x = x + (Math.random() - 0.5) * 6;
+          p.y = y + (Math.random() - 0.5) * 6;
+          p.vx = vx * 0.2 + (Math.random() - 0.5) * 20;
+          p.vy = vy * 0.2 + (Math.random() - 0.5) * 20;
+          p.color = color;
+          p.size = 2.5;
+          p.maxLife = 0.3;
+          p.life = 0.3;
+          p.drag = 0.88;
+        }
+
+        update(dt) {
+          for (let i = 0; i < this.particles.length; i++) {
+            const p = this.particles[i];
+            if (!p.active) continue;
+            p.life -= dt;
+            if (p.life <= 0) {
+              p.active = false;
+              continue;
+            }
+            p.alpha = p.life / p.maxLife;
+            p.x += p.vx * dt;
+            p.y += p.vy * dt;
+            p.vx *= Math.pow(p.drag, dt * 60);
+            p.vy *= Math.pow(p.drag, dt * 60);
+          }
+        }
+
+        draw(ctx) {
+          ctx.save();
+          ctx.globalCompositeOperation = 'lighter';
+          for (let i = 0; i < this.particles.length; i++) {
+            const p = this.particles[i];
+            if (!p.active || p.alpha <= 0.01) continue;
+            ctx.globalAlpha = p.alpha;
+            ctx.fillStyle = p.color;
+            ctx.shadowColor = p.color;
+            ctx.shadowBlur = p.size * 2;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.restore();
+        }
+      }
+
+      class TextPopupManager {
+        constructor() {
+          this.popups = [];
+        }
+
+        spawn(x, y, text, color = '#ffe600', scale = 1.0) {
+          this.popups.push({
+            x, y, text, color, scale,
+            curScale: 0,
+            vy: -55 - Math.random() * 20,
+            life: 0.9,
+            maxLife: 0.9,
+            alpha: 1
+          });
+        }
+
+        update(dt) {
+          for (let i = this.popups.length - 1; i >= 0; i--) {
+            const p = this.popups[i];
+            p.life -= dt;
+            if (p.life <= 0) {
+              this.popups.splice(i, 1);
+              continue;
+            }
+            const progress = 1 - (p.life / p.maxLife);
+            if (progress < 0.2) {
+              p.curScale = p.scale * (progress / 0.2) * 1.35;
+            } else if (progress < 0.35) {
+              p.curScale = p.scale * (1.35 - (progress - 0.2) / 0.15 * 0.35);
+            } else {
+              p.curScale = p.scale;
+            }
+            p.alpha = Math.min(1.0, p.life / (p.maxLife * 0.4));
+            p.y += p.vy * dt;
+          }
+        }
+
+        draw(ctx) {
+          ctx.save();
+          ctx.font = '900 16px "Orbitron", monospace';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          for (const p of this.popups) {
+            ctx.save();
+            ctx.globalAlpha = p.alpha;
+            ctx.translate(p.x, p.y);
+            ctx.scale(p.curScale, p.curScale);
+            ctx.shadowColor = p.color;
+            ctx.shadowBlur = 10;
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = '#03050c';
+            ctx.strokeText(p.text, 0, 0);
+            ctx.fillStyle = p.color;
+            ctx.fillText(p.text, 0, 0);
+            ctx.restore();
+          }
+          ctx.restore();
+        }
+      }
+
+      // -------------------------------------------------------------
+      // 4. MAP LAYOUT: 3 KEYCARD ROOMS, SECURITY TERMINAL, & DECORATIVE CABINETS
+      // -------------------------------------------------------------
+      class ArcadeFacility {
+        constructor() {
+          this.tileSize = 54;
+          this.cols = 25;
+          this.rows = 21;
+          this.width = this.cols * this.tileSize;
+          this.height = this.rows * this.tileSize;
+          this.startX = -this.width / 2;
+          this.startY = -this.height / 2;
+
+          // (Stage 3 uses two Piranha Doors instead of a single blast door - see doorA/doorB below)
+
+          // Room 1: West Wing (Keycard 1)
+          // Room 2: East Wing (Keycard 2, Gate 2)
+          // Room 3: North Wing (Keycard 3, Gate 3)
+          this.stage1ClawPos = { x: -440, y: -190 };
+          this.room1KeycardPos = { x: -400, y: -190 }; // Spawns directly next to the Claw Machine
+          this.room2KeycardPos = { x: 30, y: -108 }; // Halfway down the Bowling Corridor
+          this.bowlingLaneYs = [-162, -108, -54]; // 3 lanes
+          this.bowlingLaneXStart = 380; // spawn end (near Room 2 / pins)
+          this.bowlingLaneXEnd = -320; // despawn end (near Room 1 / hub)
+          this.doorA = { x: -60, y: -380, radius: 26 };
+          this.doorB = { x: 60, y: -380, radius: 26 };
+
+          // Gate Doors (block passage until prior keycards are registered)
+          // Gate 2 blocks East Room entrance at (x: 270, y: -190)
+          // Gate 3 blocks North Room entrance at (x: 0, y: -250)
+          this.gate2 = { x: 270, y: -190, w: 20, h: 60 };
+          this.gate3 = { x: 0, y: -250, w: 60, h: 20 };
+
+          // 1 = Wall, 0 = Corridor/Floor, 2 = Loop Tunnel (Row 10), 3 = Room Interior
+          this.rawMap = [
+            [1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1], // 0: Exit Door at col 12
+            [1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1], // 1: Room 3 North
+            [1,1,1,1,1,1,1,1,0,3,3,3,3,3,3,3,0,1,1,1,1,1,1,1,1], // 2: Room 3 Vault
+            [1,1,1,1,1,1,1,1,0,3,3,3,3,3,3,3,0,1,1,1,1,1,1,1,1], // 3: Room 3 Vault
+            [1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1], // 4: Gate 3 Doorway
+            [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1], // 5: North Loop Corridor
+            [1,0,1,1,1,0,1,1,1,1,0,1,0,1,0,1,1,1,1,0,1,1,1,0,1], // 6: Corridor pillars
+            [1,0,3,3,3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,3,3,0,1], // 7: Room 1 (W) & Bowling Corridor & Room 2 (E)
+            [1,0,3,3,3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,3,3,0,1], // 8: Bowling Lane (middle)
+            [1,0,3,3,3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,3,3,0,1], // 9: Bowling Lane (south)
+            [2,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,1,0,1,0,0,0,0,0,2], // 10: WRAP-AROUND LOOP PASSAGE
+            [1,0,1,1,1,0,1,0,1,0,0,0,0,0,0,0,1,0,1,0,1,1,1,0,1], // 11
+            [1,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,1], // 12: Hub Entrance
+            [1,0,0,0,0,0,1,0,1,1,0,0,0,0,0,1,1,0,1,0,0,0,0,0,1], // 13: Central Hub Loop
+            [1,1,1,0,1,0,1,0,1,0,0,0,0,0,0,0,1,0,1,0,1,0,1,1,1], // 14
+            [1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1], // 15
+            [1,0,1,1,1,0,1,1,1,1,0,1,1,1,0,1,1,1,1,0,1,1,1,0,1], // 16
+            [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1], // 17: South Loop Corridor
+            [1,0,1,1,1,1,1,0,1,1,1,1,0,1,1,1,1,0,1,1,1,1,1,0,1], // 18
+            [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1], // 19: Bottom Wall Track
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]  // 20
+          ];
+
+          // Decorative Coin-Op Arcade Cabinets & Marquees (Obstacles)
+          this.cabinets = [
+            // Room 1 (West Retro Arcade)
+            { x: -530, y: -230, w: 42, h: 52, marquee: 'PAC-MAN', col: '#ffe600', screenCol: '#00f0ff' },
+            { x: -480, y: -230, w: 42, h: 52, marquee: 'GALAGA', col: '#ff0077', screenCol: '#39ff14' },
+            { x: -530, y: -130, w: 42, h: 52, marquee: 'FROGGER', col: '#39ff14', screenCol: '#ffe600' },
+            { x: -480, y: -130, w: 42, h: 52, marquee: 'DONKEY', col: '#ff0033', screenCol: '#00f0ff' },
+
+            // Room 2 (East Cyber Pinball Lounge)
+            { x: 440, y: -230, w: 42, h: 52, marquee: 'PINBALL', col: '#00f0ff', screenCol: '#ff0077' },
+            { x: 490, y: -230, w: 42, h: 52, marquee: 'CYBER', col: '#a855f7', screenCol: '#ffe600' },
+            { x: 440, y: -130, w: 42, h: 52, marquee: 'SPACE', col: '#39ff14', screenCol: '#00f0ff' },
+            { x: 490, y: -130, w: 42, h: 52, marquee: 'KRAKEN', col: '#ff0077', screenCol: '#39ff14' },
+
+            // Room 3 (North 8-Bit Vault)
+            { x: -120, y: -410, w: 42, h: 52, marquee: '8-BIT', col: '#ffe600', screenCol: '#00f0ff' },
+            { x: -60, y: -410, w: 42, h: 52, marquee: 'VOXEL', col: '#00f0ff', screenCol: '#ff0077' },
+            { x: 60, y: -410, w: 42, h: 52, marquee: 'ARCADE', col: '#39ff14', screenCol: '#ffe600' },
+            { x: 120, y: -410, w: 42, h: 52, marquee: 'KONG', col: '#ff0033', screenCol: '#00f0ff' },
+
+            // Corridor alcove cabinets
+            { x: -160, y: 18, w: 40, h: 48, marquee: '1984', col: '#ff0077', screenCol: '#00f0ff' },
+            { x: 160, y: 18, w: 40, h: 48, marquee: 'ROBOT', col: '#00f0ff', screenCol: '#ffe600' },
+            { x: -280, y: 280, w: 40, h: 48, marquee: 'DEFEND', col: '#ffe600', screenCol: '#39ff14' },
+            { x: 280, y: 280, w: 40, h: 48, marquee: 'TEMPEST', col: '#a855f7', screenCol: '#ff0077' }
+          ];
+        }
+
+        isSolid(col, row, keycardsDeposited, exitUnlocked) {
+          if (row === 0 && col === 12) {
+            return !exitUnlocked; // Blast door
+          }
+          if (row === 4 && col === 12) {
+            return keycardsDeposited < 2; // Gate 3 to North Vault
+          }
+          if (col < 0 || col >= this.cols || row < 0 || row >= this.rows) {
+            if (row === 10) return false; // Loop passage
+            return true;
+          }
+          const val = this.rawMap[row][col];
+          return val === 1;
+        }
+
+        getCorridorFloorTiles() {
+          const tiles = [];
+          for (let r = 1; r < this.rows - 1; r++) {
+            for (let c = 1; c < this.cols - 1; c++) {
+              if (this.rawMap[r][c] === 0 || this.rawMap[r][c] === 3) {
+                tiles.push({
+                  x: this.startX + (c + 0.5) * this.tileSize,
+                  y: this.startY + (r + 0.5) * this.tileSize
+                });
+              }
+            }
+          }
+          return tiles;
+        }
+
+        resolveCollisions(entity, keycardsDeposited, exitUnlocked) {
+          const r = entity.radius;
+          const T = this.tileSize;
+
+          // Wrap-around side tunnels logic (row 10)
+          const leftBound = this.startX - 15;
+          const rightBound = this.startX + this.width + 15;
+          if (entity.pos.x < leftBound) {
+            entity.pos.x = rightBound - 20;
+          } else if (entity.pos.x > rightBound) {
+            entity.pos.x = leftBound + 20;
+          }
+
+          // 1. Grid Wall Collisions
+          const minCol = Math.floor((entity.pos.x - r - this.startX) / T);
+          const maxCol = Math.floor((entity.pos.x + r - this.startX) / T);
+          const minRow = Math.floor((entity.pos.y - r - this.startY) / T);
+          const maxRow = Math.floor((entity.pos.y + r - this.startY) / T);
+
+          let collided = false;
+
+          for (let row = minRow; row <= maxRow; row++) {
+            for (let col = minCol; col <= maxCol; col++) {
+              if (this.isSolid(col, row, keycardsDeposited, exitUnlocked)) {
+                const bx1 = this.startX + col * T;
+                const by1 = this.startY + row * T;
+                const bx2 = bx1 + T;
+                const by2 = by1 + T;
+
+                const closestX = Math.max(bx1, Math.min(entity.pos.x, bx2));
+                const closestY = Math.max(by1, Math.min(entity.pos.y, by2));
+
+                const dx = entity.pos.x - closestX;
+                const dy = entity.pos.y - closestY;
+                const distSq = dx * dx + dy * dy;
+
+                if (distSq < r * r && distSq > 0.00001) {
+                  collided = true;
+                  const dist = Math.sqrt(distSq);
+                  const pen = r - dist;
+                  const nx = dx / dist;
+                  const ny = dy / dist;
+
+                  entity.pos.x += nx * pen;
+                  entity.pos.y += ny * pen;
+
+                  const dot = entity.vel.x * nx + entity.vel.y * ny;
+                  if (dot < 0) {
+                    entity.vel.x -= nx * dot;
+                    entity.vel.y -= ny * dot;
+                  }
+                }
+              }
+            }
+          }
+
+          // 2. Gate 2 Collision (East Wing entry locked if keycardsDeposited < 1)
+          if (keycardsDeposited < 1) {
+            const g = this.gate2;
+            const closestX = Math.max(g.x - g.w/2, Math.min(entity.pos.x, g.x + g.w/2));
+            const closestY = Math.max(g.y - g.h/2, Math.min(entity.pos.y, g.y + g.h/2));
+            const dx = entity.pos.x - closestX;
+            const dy = entity.pos.y - closestY;
+            const distSq = dx * dx + dy * dy;
+            if (distSq < r * r && distSq > 0.00001) {
+              collided = true;
+              const dist = Math.sqrt(distSq);
+              const pen = r - dist;
+              entity.pos.x += (dx / dist) * pen;
+              entity.pos.y += (dy / dist) * pen;
+            }
+          }
+
+          // 3. Arcade Cabinet Obstacle Collisions
+          for (const cab of this.cabinets) {
+            const bx1 = cab.x - cab.w / 2;
+            const by1 = cab.y - cab.h / 2;
+            const bx2 = cab.x + cab.w / 2;
+            const by2 = cab.y + cab.h / 2;
+
+            const closestX = Math.max(bx1, Math.min(entity.pos.x, bx2));
+            const closestY = Math.max(by1, Math.min(entity.pos.y, by2));
+
+            const dx = entity.pos.x - closestX;
+            const dy = entity.pos.y - closestY;
+            const distSq = dx * dx + dy * dy;
+
+            if (distSq < r * r && distSq > 0.00001) {
+              collided = true;
+              const dist = Math.sqrt(distSq);
+              const pen = r - dist;
+              const nx = dx / dist;
+              const ny = dy / dist;
+
+              entity.pos.x += nx * pen;
+              entity.pos.y += ny * pen;
+
+              const dot = entity.vel.x * nx + entity.vel.y * ny;
+              if (dot < 0) {
+                entity.vel.x -= nx * dot;
+                entity.vel.y -= ny * dot;
+              }
+            }
+          }
+
+          return collided;
+        }
+
+        draw(ctx, keycardsDeposited, exitUnlocked) {
+          ctx.save();
+          const T = this.tileSize;
+
+          // 1. Draw Grid Corridor Walls & Rooms
+          for (let r = 0; r < this.rows; r++) {
+            for (let c = 0; c < this.cols; c++) {
+              const val = this.rawMap[r][c];
+              const x = this.startX + c * T;
+              const y = this.startY + r * T;
+
+              if (val === 1) {
+                // Dark metallic bulkhead with neon cyan beveled edge
+                ctx.fillStyle = '#06101f';
+                ctx.fillRect(x + 1.5, y + 1.5, T - 3, T - 3);
+
+                ctx.strokeStyle = '#00f0ff';
+                ctx.lineWidth = 2.5;
+                ctx.shadowColor = '#00f0ff';
+                ctx.shadowBlur = 8;
+                ctx.strokeRect(x + 1.5, y + 1.5, T - 3, T - 3);
+
+                // Pixel metallic rivet details
+                ctx.fillStyle = '#00f0ff';
+                ctx.fillRect(x + 4, y + 4, 3, 3);
+                ctx.fillRect(x + T - 7, y + 4, 3, 3);
+                ctx.fillRect(x + 4, y + T - 7, 3, 3);
+                ctx.fillRect(x + T - 7, y + T - 7, 3, 3);
+              } else if (val === 2) {
+                // Loop tunnel indicators
+                ctx.fillStyle = 'rgba(255, 230, 0, 0.08)';
+                ctx.fillRect(x, y, T, T);
+                ctx.fillStyle = '#ffe600';
+                ctx.font = '900 15px "Orbitron", monospace';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(c === 0 ? '◀ LOOP' : 'LOOP ▶', x + T / 2, y + T / 2);
+              } else if (val === 3) {
+                // Room carpet tiles
+                ctx.fillStyle = 'rgba(168, 85, 247, 0.04)';
+                ctx.fillRect(x, y, T, T);
+              }
+            }
+          }
+
+          // 2. Draw Room 2 & 3 Security Gate Barriers
+          // Gate 2 (East Wing)
+          ctx.save();
+          const g2Open = keycardsDeposited >= 1;
+          ctx.strokeStyle = g2Open ? '#39ff14' : '#ff0055';
+          ctx.fillStyle = g2Open ? 'rgba(57, 255, 20, 0.15)' : 'rgba(255, 0, 85, 0.25)';
+          ctx.lineWidth = 2.5;
+          ctx.shadowColor = ctx.strokeStyle;
+          ctx.shadowBlur = 12;
+          ctx.fillRect(this.gate2.x - this.gate2.w/2, this.gate2.y - this.gate2.h/2, this.gate2.w, this.gate2.h);
+          ctx.strokeRect(this.gate2.x - this.gate2.w/2, this.gate2.y - this.gate2.h/2, this.gate2.w, this.gate2.h);
+          ctx.font = '900 9px "Orbitron", monospace';
+          ctx.fillStyle = ctx.strokeStyle;
+          ctx.textAlign = 'center';
+          ctx.fillText(g2Open ? 'OPEN' : 'LOCKED (1 KEY)', this.gate2.x, this.gate2.y + 40);
+          ctx.restore();
+
+          // Gate 3 (North Vault)
+          ctx.save();
+          const g3Open = keycardsDeposited >= 2;
+          ctx.strokeStyle = g3Open ? '#39ff14' : '#ff0055';
+          ctx.fillStyle = g3Open ? 'rgba(57, 255, 20, 0.15)' : 'rgba(255, 0, 85, 0.25)';
+          ctx.lineWidth = 2.5;
+          ctx.shadowColor = ctx.strokeStyle;
+          ctx.shadowBlur = 12;
+          ctx.fillRect(this.gate3.x - this.gate3.w/2, this.gate3.y - this.gate3.h/2, this.gate3.w, this.gate3.h);
+          ctx.strokeRect(this.gate3.x - this.gate3.w/2, this.gate3.y - this.gate3.h/2, this.gate3.w, this.gate3.h);
+          ctx.font = '900 9px "Orbitron", monospace';
+          ctx.fillStyle = ctx.strokeStyle;
+          ctx.textAlign = 'center';
+          ctx.fillText(g3Open ? 'OPEN' : 'LOCKED (2 KEYS)', this.gate3.x, this.gate3.y + 24);
+          ctx.restore();
+
+          // 3. Draw Decorative Arcade Cabinets
+          for (const cab of this.cabinets) {
+            this._drawCabinet(ctx, cab);
+          }
+
+          // 5. Draw Piranha Doors (Stage 3 - Door A & Door B, identical, correct one is random)
+          for (const [label, d] of [['DOOR A', this.doorA], ['DOOR B', this.doorB]]) {
+            ctx.save();
+            ctx.translate(d.x, d.y);
+            ctx.strokeStyle = '#ff0077';
+            ctx.fillStyle = 'rgba(255, 0, 119, 0.18)';
+            ctx.lineWidth = 3;
+            ctx.shadowColor = '#ff0077';
+            ctx.shadowBlur = 16;
+            ctx.fillRect(-d.radius, -d.radius * 1.4, d.radius * 2, d.radius * 2.8);
+            ctx.strokeRect(-d.radius, -d.radius * 1.4, d.radius * 2, d.radius * 2.8);
+            ctx.font = '900 11px "Orbitron", monospace';
+            ctx.fillStyle = '#ff0077';
+            ctx.textAlign = 'center';
+            ctx.fillText(label, 0, d.radius * 1.4 + 16);
+            ctx.restore();
+          }
+
+          ctx.restore();
+        }
+
+        _drawCabinet(ctx, cab) {
+          ctx.save();
+          ctx.translate(cab.x, cab.y);
+
+          // Cabinet base body
+          ctx.fillStyle = '#0a0d18';
+          ctx.fillRect(-cab.w / 2, -cab.h / 2, cab.w, cab.h);
+
+          ctx.strokeStyle = cab.col;
+          ctx.lineWidth = 2;
+          ctx.shadowColor = cab.col;
+          ctx.shadowBlur = 10;
+          ctx.strokeRect(-cab.w / 2, -cab.h / 2, cab.w, cab.h);
+
+          // Glowing Marquee
+          ctx.fillStyle = cab.col;
+          ctx.fillRect(-cab.w / 2 + 4, -cab.h / 2 + 3, cab.w - 8, 12);
+          ctx.font = '900 8px "Orbitron", monospace';
+          ctx.fillStyle = '#03050c';
+          ctx.textAlign = 'center';
+          ctx.fillText(cab.marquee, 0, -cab.h / 2 + 12);
+
+          // CRT Screen (animated pixel glow)
+          ctx.fillStyle = '#051020';
+          ctx.fillRect(-cab.w / 2 + 6, -cab.h / 2 + 18, cab.w - 12, 18);
+          ctx.strokeStyle = cab.screenCol;
+          ctx.lineWidth = 1;
+          ctx.strokeRect(-cab.w / 2 + 6, -cab.h / 2 + 18, cab.w - 12, 18);
+
+          // Screen pixel scanlines
+          const pixelX = ((Date.now() / 40) % (cab.w - 18)) - (cab.w - 18) / 2;
+          ctx.fillStyle = cab.screenCol;
+          ctx.fillRect(pixelX, -cab.h / 2 + 25, 4, 4);
+
+          // Joystick and buttons control panel
+          ctx.fillStyle = '#ff0033';
+          ctx.beginPath();
+          ctx.arc(-6, cab.h / 2 - 10, 3, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#ffe600';
+          ctx.beginPath();
+          ctx.arc(4, cab.h / 2 - 12, 2.5, 0, Math.PI * 2);
+          ctx.arc(10, cab.h / 2 - 8, 2.5, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.restore();
+        }
+      }
+
+      // -------------------------------------------------------------
+      // 5. ARCADE CLAW MACHINE HAZARD (OBSTACLE)
+      // -------------------------------------------------------------
+      class ClawHazard {
+        constructor(x, y) {
+          this.pos = { x, y };
+          this.radius = 38; // Trap zone
+          this.state = 'IDLE'; // IDLE, TELEGRAPH, SLAM, RETRACT
+          this.timer = Math.random() * 2; // Staggered initial drop
+          this.idleDuration = 3.5 + Math.random() * 1.5;
+          this.telegraphDuration = 1.5;
+          this.warningFlash = 0;
+          this.dropHeight = 0; // 0 = ceiling, 1 = slammed down
+        }
+
+        update(dt, players, shake, particles, popups) {
+          this.timer += dt;
+
+          if (this.state === 'IDLE') {
+            if (this.timer >= this.idleDuration) {
+              this.state = 'TELEGRAPH';
+              this.timer = 0;
+              this.warningFlash = 0;
+              sound.playClawWarning();
+            }
+          } else if (this.state === 'TELEGRAPH') {
+            this.warningFlash += dt * 8;
+            if (this.timer >= this.telegraphDuration) {
+              this.state = 'SLAM';
+              this.timer = 0;
+              this.dropHeight = 1;
+              shake.add(0.45);
+              particles.ring(this.pos.x, this.pos.y, 35, '#ffe600', 320);
+              sound.playClawSlam();
+
+              // Grab player inside trap zone
+              for (const p of players) {
+                if (p.isDead) continue;
+                const d = Math.hypot(p.pos.x - this.pos.x, p.pos.y - this.pos.y);
+                if (d < this.radius + p.radius) {
+                  p.takeDamage(30, shake, particles, popups);
+                  particles.burst(p.pos.x, p.pos.y, 25, '#ffe600', 250, 4);
+                  popups.spawn(p.pos.x, p.pos.y - 30, "CLAW MACHINE HIT!", '#ff0033', 1.4);
+                }
+              }
+            }
+          } else if (this.state === 'SLAM') {
+            if (this.timer >= 0.6) {
+              this.state = 'RETRACT';
+              this.timer = 0;
+            }
+          } else if (this.state === 'RETRACT') {
+            this.dropHeight = Math.max(0, 1 - this.timer / 0.8);
+            if (this.timer >= 0.8) {
+              this.state = 'IDLE';
+              this.timer = 0;
+              this.idleDuration = 3.5 + Math.random() * 2.0;
+            }
+          }
+        }
+
+        draw(ctx) {
+          ctx.save();
+          ctx.translate(this.pos.x, this.pos.y);
+
+          // 1. Telegraph Warning Target Reticle on Floor
+          if (this.state === 'TELEGRAPH') {
+            const isFlash = Math.floor(this.warningFlash) % 2 === 0;
+            ctx.save();
+            ctx.strokeStyle = isFlash ? '#ff0033' : '#ffe600';
+            ctx.lineWidth = 3;
+            ctx.shadowColor = ctx.strokeStyle;
+            ctx.shadowBlur = 16;
+            ctx.setLineDash([8, 6]);
+
+            ctx.beginPath();
+            ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Crosshairs
+            ctx.setLineDash([]);
+            ctx.beginPath();
+            ctx.moveTo(-this.radius - 8, 0); ctx.lineTo(this.radius + 8, 0);
+            ctx.moveTo(0, -this.radius - 8); ctx.lineTo(0, this.radius + 8);
+            ctx.stroke();
+
+            // Flashing Warning Text
+            ctx.font = '900 13px "Orbitron", monospace';
+            ctx.fillStyle = ctx.strokeStyle;
+            ctx.textAlign = 'center';
+            ctx.fillText("! WARNING: CLAW DROP !", 0, -this.radius - 14);
+            ctx.restore();
+          }
+
+          // 2. Overhead / Dropping Metallic Claw
+          if (this.state === 'SLAM' || this.state === 'RETRACT') {
+            ctx.save();
+            const clawColor = '#ffe600';
+            ctx.strokeStyle = clawColor;
+            ctx.fillStyle = '#111728';
+            ctx.lineWidth = 3.5;
+            ctx.shadowColor = clawColor;
+            ctx.shadowBlur = 14;
+
+            // Center claw motor housing
+            ctx.beginPath();
+            ctx.arc(0, 0, 14, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            // 3 Mechanical Claw Prongs Snapped Shut
+            for (let i = 0; i < 3; i++) {
+              const angle = (i / 3) * Math.PI * 2;
+              const px = Math.cos(angle) * this.radius * 0.75;
+              const py = Math.sin(angle) * this.radius * 0.75;
+
+              ctx.beginPath();
+              ctx.moveTo(0, 0);
+              ctx.lineTo(px, py);
+              ctx.lineTo(px + Math.cos(angle + 0.5) * 12, py + Math.sin(angle + 0.5) * 12);
+              ctx.stroke();
+            }
+            ctx.restore();
+          }
+
+          ctx.restore();
+        }
+      }
+
+      // -------------------------------------------------------------
+      // 5b. STAGE 2 HAZARD: ROLLING BOWLING BALLS
+      // -------------------------------------------------------------
+      class BowlingBall {
+        constructor(laneY, xStart, xEnd, delay = 0) {
+          this.laneY = laneY;
+          this.xStart = xStart;
+          this.xEnd = xEnd;
+          this.radius = 15;
+          this.rot = 0;
+          this.pos = { x: xStart + delay * 60, y: laneY };
+          this.speed = 150 + Math.random() * 70;
+        }
+
+        update(dt, players, shake, particles, popups) {
+          this.pos.x -= this.speed * dt;
+          this.rot += dt * (this.speed / this.radius);
+          if (this.pos.x < this.xEnd) {
+            this.pos.x = this.xStart;
+            this.speed = 150 + Math.random() * 70;
+          }
+          for (const p of players) {
+            if (p.isDead) continue;
+            if (Math.hypot(this.pos.x - p.pos.x, this.pos.y - p.pos.y) < this.radius + p.radius) {
+              const dmg = p.takeDamage(30, shake, particles, popups);
+              if (dmg > 0) popups.spawn(p.pos.x, p.pos.y - 30, "STRUCK BY BOWLING BALL!", '#ff0033', 1.3);
+            }
+          }
+        }
+
+        draw(ctx) {
+          ctx.save();
+          ctx.translate(this.pos.x, this.pos.y);
+          ctx.rotate(this.rot);
+          ctx.fillStyle = '#160825';
+          ctx.strokeStyle = '#ff0077';
+          ctx.lineWidth = 2;
+          ctx.shadowColor = '#ff0077';
+          ctx.shadowBlur = 10;
+          ctx.beginPath();
+          ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+          ctx.fillStyle = '#00f0ff';
+          ctx.beginPath();
+          ctx.arc(-4, -5, 2.2, 0, Math.PI * 2);
+          ctx.arc(4, -5, 2.2, 0, Math.PI * 2);
+          ctx.arc(0, 4, 2.2, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+      }
+
+      // -------------------------------------------------------------
+      // 6. ROBLOX / MINECRAFT VOXEL CHARACTER SPRITE
+      // -------------------------------------------------------------
+      class VoxelPlayer {
+        constructor(id, x, y, baseColor) {
+          this.id = id;
+          this.pos = { x, y };
+          this.vel = { x: 0, y: 0 };
+          this.radius = 16;
+          this.rotation = -Math.PI / 2;
+          this.baseColor = baseColor;
+
+          this.hp = 100;
+          this.maxHp = 100;
+          this.isDead = false;
+
+          // Powerup & debuff states
+          this.speedBoostTimer = 0;
+          this.starTimer = 0;
+          this.invulnerableTimer = 0;
+          this.clawSlowTimer = 0; // 50% slowdown debuff from Claw Grab
+
+          // Keycard carrying
+          this.carryingKeycard = false;
+          this.carriedKeycardId = null;
+
+          // Dash
+          this.dashCooldown = 0.85;
+          this.dashCooldownTimer = 0;
+          this.isDashing = false;
+          this.dashTimer = 0;
+
+          // Voxel Animation State
+          this.walkAnimTimer = 0;
+          this.ghostTrail = [];
+        }
+
+        reset(x, y) {
+          this.pos = { x, y };
+          this.vel = { x: 0, y: 0 };
+          this.hp = 100;
+          this.isDead = false;
+          this.speedBoostTimer = 0;
+          this.starTimer = 0;
+          this.invulnerableTimer = 0;
+          this.clawSlowTimer = 0;
+          this.carryingKeycard = false;
+          this.carriedKeycardId = null;
+          this.dashCooldownTimer = 0;
+          this.isDashing = false;
+          this.ghostTrail = [];
+        }
+
+        applyClawSlowdown(duration = 3.0) {
+          this.clawSlowTimer = duration;
+        }
+
+        takeDamage(amount, shake, particles, popups) {
+          if (this.isDead || this.invulnerableTimer > 0 || this.starTimer > 0 || this.isDashing) {
+            return 0;
+          }
+          this.hp = Math.max(0, this.hp - amount);
+          this.invulnerableTimer = 1.0;
+          shake.add(0.4);
+          particles.burst(this.pos.x, this.pos.y, 20, '#ff0055', 260, 4);
+          popups.spawn(this.pos.x, this.pos.y - 20, `-${amount} HP`, '#ff0055', 1.1);
+          sound.playDamage();
+
+          if (this.hp <= 0) {
+            this.isDead = true;
+            particles.ring(this.pos.x, this.pos.y, 40, '#ff0055', 360);
+          }
+          return amount;
+        }
+
+        dash(shake, particles) {
+          if (this.dashCooldownTimer <= 0 && !this.isDead) {
+            const spd = 750;
+            const dirAngle = (this.vel.x !== 0 || this.vel.y !== 0) ? Math.atan2(this.vel.y, this.vel.x) : this.rotation;
+            this.vel.x = Math.cos(dirAngle) * spd;
+            this.vel.y = Math.sin(dirAngle) * spd;
+            this.isDashing = true;
+            this.dashTimer = 0.18;
+            this.dashCooldownTimer = this.dashCooldown;
+            shake.add(0.18);
+            particles.burst(this.pos.x, this.pos.y, 14, this.baseColor, 200, 3);
+            sound.playDash();
+          }
+        }
+
+        update(dt, inputDir, facility, keycardsDeposited, exitUnlocked, particles) {
+          if (this.isDead) return;
+
+          if (this.dashCooldownTimer > 0) this.dashCooldownTimer -= dt;
+          if (this.invulnerableTimer > 0) this.invulnerableTimer -= dt;
+          if (this.speedBoostTimer > 0) this.speedBoostTimer -= dt;
+          if (this.starTimer > 0) this.starTimer -= dt;
+          if (this.clawSlowTimer > 0) this.clawSlowTimer -= dt;
+
+          const isStar = this.starTimer > 0;
+          const isSpeed = this.speedBoostTimer > 0;
+          const isClawSlowed = this.clawSlowTimer > 0;
+
+          if (this.isDashing) {
+            this.dashTimer -= dt;
+            if (this.dashTimer <= 0) this.isDashing = false;
+          } else {
+            let accel = isSpeed ? 2400 : 1600;
+            let maxSpd = isSpeed ? 440 : 300;
+
+            if (isClawSlowed) {
+              accel *= 0.5;
+              maxSpd *= 0.5; // 50% severe movement slowdown from claw
+            }
+
+            if (inputDir.x !== 0 || inputDir.y !== 0) {
+              this.vel.x += inputDir.x * accel * dt;
+              this.vel.y += inputDir.y * accel * dt;
+              const targetAngle = Math.atan2(inputDir.y, inputDir.x);
+              let diff = targetAngle - this.rotation;
+              while (diff < -Math.PI) diff += Math.PI * 2;
+              while (diff > Math.PI) diff -= Math.PI * 2;
+              this.rotation += diff * Math.min(1.0, dt * 14);
+
+              this.walkAnimTimer += dt * 16;
+
+              // Voxel footstep dust particles
+              if (Math.random() < 0.25) {
+                particles.trail(this.pos.x, this.pos.y, -this.vel.x * 0.2, -this.vel.y * 0.2, isStar ? '#ff00ff' : (isSpeed ? '#39ff14' : this.baseColor));
+              }
+            } else {
+              this.walkAnimTimer = 0;
+            }
+
+            // Damping
+            const drag = Math.pow(0.86, dt * 60);
+            this.vel.x *= drag;
+            this.vel.y *= drag;
+
+            const curSpd = Math.hypot(this.vel.x, this.vel.y);
+            if (curSpd > maxSpd) {
+              this.vel.x = (this.vel.x / curSpd) * maxSpd;
+              this.vel.y = (this.vel.y / curSpd) * maxSpd;
+            }
+          }
+
+          this.pos.x += this.vel.x * dt;
+          this.pos.y += this.vel.y * dt;
+
+          facility.resolveCollisions(this, keycardsDeposited, exitUnlocked);
+
+          // Ghost trails
+          if (this.isDashing || isStar || isSpeed) {
+            this.ghostTrail.push({
+              x: this.pos.x, y: this.pos.y, rot: this.rotation, alpha: 0.6
+            });
+          }
+          for (let i = this.ghostTrail.length - 1; i >= 0; i--) {
+            this.ghostTrail[i].alpha -= dt * 4;
+            if (this.ghostTrail[i].alpha <= 0) this.ghostTrail.splice(i, 1);
+          }
+        }
+
+        draw(ctx) {
+          if (this.isDead) return;
+
+          // Ghost trails
+          for (const g of this.ghostTrail) {
+            ctx.save();
+            ctx.globalAlpha = g.alpha * 0.25;
+            ctx.translate(g.x, g.y);
+            ctx.rotate(g.rot);
+            this._drawVoxelCharacter(ctx, this.baseColor, true);
+            ctx.restore();
+          }
+
+          ctx.save();
+          ctx.translate(this.pos.x, this.pos.y);
+          ctx.rotate(this.rotation);
+
+          if (this.invulnerableTimer > 0 && Math.floor(Date.now() / 60) % 2 === 0) {
+            ctx.globalAlpha = 0.35;
+          }
+
+          let drawColor = this.baseColor;
+          if (this.starTimer > 0) {
+            drawColor = `hsl(${(Date.now() / 3) % 360}, 100%, 70%)`;
+          } else if (this.speedBoostTimer > 0) {
+            drawColor = '#39ff14';
+          } else if (this.isDashing) {
+            drawColor = '#ffffff';
+          }
+
+          this._drawVoxelCharacter(ctx, drawColor, false);
+
+          // Electric shock cage when slowed by Claw
+          if (this.clawSlowTimer > 0) {
+            ctx.save();
+            ctx.strokeStyle = '#ffe600';
+            ctx.shadowColor = '#ffe600';
+            ctx.shadowBlur = 12;
+            ctx.lineWidth = 2;
+            for (let i = 0; i < 4; i++) {
+              ctx.beginPath();
+              ctx.moveTo((Math.random() - 0.5) * 32, (Math.random() - 0.5) * 32);
+              ctx.lineTo((Math.random() - 0.5) * 32, (Math.random() - 0.5) * 32);
+              ctx.stroke();
+            }
+            ctx.restore();
+          }
+
+          // Carried Keycard Hologram floating over head
+          if (this.carryingKeycard) {
+            ctx.save();
+            ctx.translate(0, -26);
+            ctx.rotate(Date.now() / 200);
+            ctx.fillStyle = '#062035';
+            ctx.fillRect(-7, -10, 14, 20);
+            ctx.strokeStyle = '#00f0ff';
+            ctx.lineWidth = 2;
+            ctx.shadowColor = '#00f0ff';
+            ctx.shadowBlur = 12;
+            ctx.strokeRect(-7, -10, 14, 20);
+            ctx.restore();
+          }
+
+          ctx.restore();
+        }
+
+        _drawVoxelCharacter(ctx, neonCol, isGhost) {
+          const armSwing = Math.sin(this.walkAnimTimer) * 6;
+          const legSwing = Math.cos(this.walkAnimTimer) * 5;
+
+          ctx.save();
+          // Roblox / Minecraft top-down voxel proportions:
+          // Torso: 18x12, Head: 14x14, Arms: 5x10, Legs: 6x8
+
+          // 1. Legs (Behind torso)
+          ctx.fillStyle = '#0f172a';
+          ctx.strokeStyle = neonCol;
+          ctx.lineWidth = 1.5;
+          ctx.shadowColor = neonCol;
+          ctx.shadowBlur = isGhost ? 0 : 8;
+
+          // Left leg
+          ctx.fillRect(-8, -4 + legSwing, 6, 8);
+          ctx.strokeRect(-8, -4 + legSwing, 6, 8);
+          // Right leg
+          ctx.fillRect(2, -4 - legSwing, 6, 8);
+          ctx.strokeRect(2, -4 - legSwing, 6, 8);
+
+          // 2. Arms
+          // Left arm
+          ctx.fillRect(-14, -8 - armSwing, 5, 12);
+          ctx.strokeRect(-14, -8 - armSwing, 5, 12);
+          // Right arm
+          ctx.fillRect(9, -8 + armSwing, 5, 12);
+          ctx.strokeRect(9, -8 + armSwing, 5, 12);
+
+          // 3. Torso (Blocky shirt with cyber neon stripe)
+          ctx.fillStyle = '#1e293b';
+          ctx.fillRect(-9, -9, 18, 14);
+          ctx.strokeRect(-9, -9, 18, 14);
+
+          // Neon chest emblem
+          ctx.fillStyle = neonCol;
+          ctx.fillRect(-4, -6, 8, 3);
+
+          // 4. Cube Head
+          ctx.fillStyle = '#334155';
+          ctx.fillRect(-7, -5, 14, 14);
+          ctx.strokeRect(-7, -5, 14, 14);
+
+          // Face / Visor
+          ctx.fillStyle = '#0f172a';
+          ctx.fillRect(-5, 2, 10, 5);
+
+          // Voxel Pixel Eyes
+          ctx.fillStyle = neonCol;
+          ctx.shadowColor = neonCol;
+          ctx.shadowBlur = 6;
+          ctx.fillRect(-4, 3, 2.5, 2.5);
+          ctx.fillRect(1.5, 3, 2.5, 2.5);
+
+          ctx.restore();
+        }
+      }
+
+      // -------------------------------------------------------------
+      // 7. COLLECTIBLE ITEM (KEYCARDS, COINS, SPEED, STAR)
+      // -------------------------------------------------------------
+      class CollectibleItem {
+        constructor(type, x, y, id = null) {
+          this.type = type; // 'keycard', 'coin', 'speed', 'star'
+          this.pos = { x, y };
+          this.radius = type === 'keycard' ? 14 : 11;
+          this.alive = true;
+          this.phase = Math.random() * Math.PI * 2;
+          this.rot = Math.random() * Math.PI * 2;
+          this.id = id; // For keycard 1, 2, 3
+        }
+
+        update(dt, particles) {
+          this.phase += dt * 3;
+          this.rot += dt * 2.5;
+
+          // Glowing particle motes around keycards & coins
+          if (Math.random() < (this.type === 'keycard' ? 0.35 : 0.15)) {
+            const color = this.type === 'keycard' ? '#00f0ff' : (this.type === 'coin' ? '#ffe600' : (this.type === 'speed' ? '#39ff14' : '#ff00ff'));
+            particles.trail(this.pos.x, this.pos.y, (Math.random() - 0.5) * 30, (Math.random() - 0.5) * 30, color);
+          }
+        }
+
+        draw(ctx) {
+          ctx.save();
+          ctx.translate(this.pos.x, this.pos.y + Math.sin(this.phase) * 5);
+          ctx.rotate(this.rot);
+
+          if (this.type === 'coin') {
+            ctx.strokeStyle = '#ffe600';
+            ctx.fillStyle = '#443b00';
+            ctx.lineWidth = 2;
+            ctx.shadowColor = '#ffe600';
+            ctx.shadowBlur = 10;
+            ctx.beginPath();
+            for (let i = 0; i < 6; i++) {
+              const a = (i / 6) * Math.PI * 2;
+              const x = Math.cos(a) * this.radius;
+              const y = Math.sin(a) * this.radius;
+              if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+            }
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+            ctx.fillStyle = '#ffe600';
+            ctx.beginPath();
+            ctx.arc(0, 0, 3, 0, Math.PI * 2);
+            ctx.fill();
+          } else if (this.type === 'keycard') {
+            // Glowing neon data chip on pedestal
+            ctx.strokeStyle = '#00f0ff';
+            ctx.fillStyle = '#062035';
+            ctx.lineWidth = 2.5;
+            ctx.shadowColor = '#00f0ff';
+            ctx.shadowBlur = 16;
+            ctx.fillRect(-8, -12, 16, 24);
+            ctx.strokeRect(-8, -12, 16, 24);
+            ctx.fillStyle = '#00f0ff';
+            ctx.fillRect(-3, -3, 6, 6);
+          } else if (this.type === 'speed') {
+            ctx.strokeStyle = '#39ff14';
+            ctx.fillStyle = '#073307';
+            ctx.lineWidth = 2;
+            ctx.shadowColor = '#39ff14';
+            ctx.shadowBlur = 12;
+            ctx.beginPath();
+            ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.moveTo(2, -6); ctx.lineTo(-4, 1); ctx.lineTo(0, 1);
+            ctx.lineTo(-2, 6); ctx.lineTo(4, -1); ctx.lineTo(0, -1);
+            ctx.closePath();
+            ctx.fill();
+          } else if (this.type === 'star') {
+            const hue = (Date.now() / 4) % 360;
+            const col = `hsl(${hue}, 100%, 70%)`;
+            ctx.strokeStyle = col;
+            ctx.fillStyle = '#300a30';
+            ctx.lineWidth = 2;
+            ctx.shadowColor = col;
+            ctx.shadowBlur = 14;
+            ctx.beginPath();
+            for (let i = 0; i < 10; i++) {
+              const r = i % 2 === 0 ? this.radius + 3 : this.radius * 0.45;
+              const a = (i / 10) * Math.PI * 2;
+              const x = Math.cos(a) * r;
+              const y = Math.sin(a) * r;
+              if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+            }
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+          }
+          ctx.restore();
+        }
+      }
+
+      class Projectile {
+        constructor() {
+          this.active = false;
+          this.x = 0;
+          this.y = 0;
+          this.vx = 0;
+          this.vy = 0;
+          this.radius = 6.5;
+          this.color = '#ff0077';
+          this.life = 0;
+        }
+
+        spawn(x, y, vx, vy, color = '#ff0077', radius = 6.5, life = 3.5) {
+          this.active = true;
+          this.x = x;
+          this.y = y;
+          this.vx = vx;
+          this.vy = vy;
+          this.color = color;
+          this.radius = radius;
+          this.life = life;
+        }
+
+        update(dt, facility, particles) {
+          if (!this.active) return;
+          this.life -= dt;
+          if (this.life <= 0) {
+            this.active = false;
+            return;
+          }
+          this.x += this.vx * dt;
+          this.y += this.vy * dt;
+
+          const T = facility.tileSize;
+          const col = Math.floor((this.x - facility.startX) / T);
+          const row = Math.floor((this.y - facility.startY) / T);
+          if (facility.isSolid(col, row, 0, false)) {
+            this.active = false;
+            particles.burst(this.x, this.y, 8, this.color, 140, 2.5);
+          }
+        }
+
+        draw(ctx) {
+          if (!this.active) return;
+          ctx.save();
+          ctx.fillStyle = this.color;
+          ctx.shadowColor = this.color;
+          ctx.shadowBlur = 12;
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#ffffff';
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, this.radius * 0.45, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+      }
+
+      class OctopusBoss {
+        constructor(x, y) {
+          this.pos = { x, y };
+          this.vel = { x: 0, y: 0 };
+          this.radius = 28;
+          this.rotation = Math.PI / 2;
+          this.speed = 175; // Constant chase speed
+          this.contactDamage = 10; // -10 HP on touch
+
+          this.tentacles = [];
+          for (let i = 0; i < 8; i++) {
+            const offset = (i / 8) * Math.PI * 2;
+            const segments = [];
+            for (let s = 0; s < 9; s++) segments.push({ x, y });
+            this.tentacles.push({ offset, segments, phase: Math.random() * Math.PI * 2 });
+          }
+        }
+
+        reset(x, y) {
+          this.pos = { x, y };
+          this.vel = { x: 0, y: 0 };
+        }
+
+        // Simple relentless chaser: always moves toward the nearest living
+        // player through the corridors, dealing contact damage on touch.
+        update(dt, players, facility, keycardsDeposited, exitUnlocked, shake, particles, popups) {
+          let nearest = null;
+          let minDist = Infinity;
+          for (const p of players) {
+            if (p.isDead) continue;
+            const d = Math.hypot(p.pos.x - this.pos.x, p.pos.y - this.pos.y);
+            if (d < minDist) {
+              minDist = d;
+              nearest = p;
+            }
+          }
+
+          if (nearest) {
+            const dx = nearest.pos.x - this.pos.x;
+            const dy = nearest.pos.y - this.pos.y;
+            const targetAngle = Math.atan2(dy, dx);
+            let diff = targetAngle - this.rotation;
+            while (diff < -Math.PI) diff += Math.PI * 2;
+            while (diff > Math.PI) diff -= Math.PI * 2;
+            this.rotation += diff * Math.min(1.0, dt * 4);
+
+            // Corridor-friendly navigation: prioritize the larger axis of travel
+            let vx = 0, vy = 0;
+            if (Math.abs(dx) > Math.abs(dy)) {
+              vx = Math.sign(dx) * this.speed;
+              vy = Math.sign(dy) * (this.speed * 0.4);
+            } else {
+              vy = Math.sign(dy) * this.speed;
+              vx = Math.sign(dx) * (this.speed * 0.4);
+            }
+            this.vel.x += (vx - this.vel.x) * dt * 4;
+            this.vel.y += (vy - this.vel.y) * dt * 4;
+          }
+
+          this.pos.x += this.vel.x * dt;
+          this.pos.y += this.vel.y * dt;
+          facility.resolveCollisions(this, keycardsDeposited, exitUnlocked);
+
+          // Update trailing tentacles (visual only)
+          for (const t of this.tentacles) {
+            t.phase += dt * 4.5;
+            const anchorAngle = this.rotation + t.offset;
+            const anchorX = this.pos.x + Math.cos(anchorAngle) * (this.radius * 0.85);
+            const anchorY = this.pos.y + Math.sin(anchorAngle) * (this.radius * 0.85);
+
+            t.segments[0].x = anchorX;
+            t.segments[0].y = anchorY;
+
+            const segLen = 18;
+            for (let i = 1; i < t.segments.length; i++) {
+              const prev = t.segments[i - 1];
+              const cur = t.segments[i];
+              const wave = anchorAngle + Math.PI + Math.sin(t.phase + i * 0.6) * 0.4;
+              const desiredX = prev.x + Math.cos(wave) * segLen;
+              const desiredY = prev.y + Math.sin(wave) * segLen;
+
+              cur.x += (desiredX - cur.x) * dt * 14;
+              cur.y += (desiredY - cur.y) * dt * 14;
+
+              const dx2 = cur.x - prev.x;
+              const dy2 = cur.y - prev.y;
+              const dist = Math.hypot(dx2, dy2) || 1;
+              cur.x = prev.x + (dx2 / dist) * segLen;
+              cur.y = prev.y + (dy2 / dist) * segLen;
+            }
+          }
+
+          // Contact damage: chasing hazard, -10 HP on touch
+          for (const p of players) {
+            if (p.isDead) continue;
+            if (Math.hypot(this.pos.x - p.pos.x, this.pos.y - p.pos.y) < this.radius + p.radius) {
+              p.takeDamage(this.contactDamage, shake, particles, popups);
+              const kx = p.pos.x - this.pos.x;
+              const ky = p.pos.y - this.pos.y;
+              const kl = Math.hypot(kx, ky) || 1;
+              p.vel.x += (kx / kl) * 260;
+              p.vel.y += (ky / kl) * 260;
+            }
+          }
+        }
+
+        draw(ctx) {
+          ctx.save();
+          const tentacleCol = '#a855f7';
+          ctx.strokeStyle = tentacleCol;
+          ctx.shadowColor = tentacleCol;
+          ctx.shadowBlur = 10;
+          ctx.lineCap = 'round';
+          for (const t of this.tentacles) {
+            for (let i = 0; i < t.segments.length - 1; i++) {
+              ctx.lineWidth = Math.max(2.5, 11 * (1 - i / t.segments.length));
+              ctx.beginPath();
+              ctx.moveTo(t.segments[i].x, t.segments[i].y);
+              ctx.lineTo(t.segments[i + 1].x, t.segments[i + 1].y);
+              ctx.stroke();
+
+              if (i % 2 === 1) {
+                ctx.fillStyle = '#00f0ff';
+                ctx.beginPath();
+                ctx.arc(t.segments[i + 1].x, t.segments[i + 1].y, 2.5, 0, Math.PI * 2);
+                ctx.fill();
+              }
+            }
+          }
+          ctx.restore();
+
+          ctx.save();
+          ctx.translate(this.pos.x, this.pos.y);
+          ctx.rotate(this.rotation);
+
+          const mCol = '#9333ea';
+
+          ctx.beginPath();
+          ctx.ellipse(0, 0, this.radius, this.radius * 1.25, 0, 0, Math.PI * 2);
+          ctx.fillStyle = '#110520';
+          ctx.fill();
+          ctx.strokeStyle = mCol;
+          ctx.lineWidth = 3.5;
+          ctx.shadowColor = mCol;
+          ctx.shadowBlur = 16;
+          ctx.stroke();
+
+          ctx.fillStyle = '#00f0ff';
+          ctx.shadowColor = ctx.fillStyle;
+          ctx.shadowBlur = 12;
+          ctx.beginPath();
+          ctx.arc(-11, 8, 4.5, 0, Math.PI * 2);
+          ctx.arc(11, 8, 4.5, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = '#ff0077';
+          ctx.beginPath();
+          ctx.arc(0, -4, 9, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.restore();
+        }
+      }
+
+      // -------------------------------------------------------------
+      // 8. MASTER GAME ENGINE & ORCHESTRATOR
+      // -------------------------------------------------------------
+      class NeonKrakenGame {
+        constructor() {
+          this.canvas = document.getElementById('gameCanvas');
+          this.ctx = this.canvas.getContext('2d');
+
+          this.facility = new ArcadeFacility();
+          this.shake = new ScreenShake();
+          this.particles = new ParticlePool(800);
+          this.popups = new TextPopupManager();
+
+          // Start players at Central Terminal Hub
+          this.p1 = new VoxelPlayer('p1', -50, 150, '#00f0ff');
+          this.p2 = new VoxelPlayer('p2', 50, 150, '#ffe600');
+          this.players = [this.p1, this.p2];
+
+          this.boss = new OctopusBoss(0, -100);
+
+          // Stage 1 (Arcade Wing) Overhead Claw Machine Hazard
+          this.claws = [
+            new ClawHazard(this.facility.stage1ClawPos.x, this.facility.stage1ClawPos.y)
+          ];
+
+          // Stage 2 (Bowling Corridor) Rolling Bowling Balls, 2 per lane
+          this.bowlingBalls = [];
+          for (const laneY of this.facility.bowlingLaneYs) {
+            this.bowlingBalls.push(new BowlingBall(laneY, this.facility.bowlingLaneXStart, this.facility.bowlingLaneXEnd, 0));
+            this.bowlingBalls.push(new BowlingBall(laneY, this.facility.bowlingLaneXStart, this.facility.bowlingLaneXEnd, 6));
+          }
+
+          this.projectiles = new Array(200).fill(0).map(() => new Projectile());
+          this.collectibles = [];
+
+          this.keycardsDeposited = 0;
+          this.score = 0;
+          this.multiplier = 1;
+          this.comboTimer = 0;
+          this.exitUnlocked = false;
+
+          this.camera = { x: 0, y: 0 };
+          this.keys = {};
+          this.p2MobileDir = { x: 0, y: 0 };
+
+          this.state = 'START'; // START, PLAYING, GAMEOVER, VICTORY
+
+          this._initCanvas();
+          this._initInput();
+          this._initPeerJS();
+          this._bindDom();
+
+          this.lastTime = performance.now();
+          if (urlParams.get('autostart') === '1') {
+            this.start();
+          }
+          requestAnimationFrame((t) => this.loop(t));
+        }
+
+        _initCanvas() {
+          const resize = () => {
+            const dpr = Math.min(window.devicePixelRatio || 1, 2);
+            this.width = window.innerWidth;
+            this.height = window.innerHeight;
+            this.canvas.width = Math.floor(this.width * dpr);
+            this.canvas.height = Math.floor(this.height * dpr);
+            this.ctx.resetTransform();
+            this.ctx.scale(dpr, dpr);
+          };
+          window.addEventListener('resize', resize);
+          resize();
+        }
+
+        _initInput() {
+          window.addEventListener('keydown', (e) => {
+            if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space',' '].includes(e.key)) {
+              e.preventDefault();
+            }
+            this.keys[e.code] = true;
+
+            if (e.code === 'Space' && this.state === 'PLAYING') {
+              this.p1.dash(this.shake, this.particles);
+            }
+            if ((e.code === 'Enter' || e.code === 'ShiftRight') && this.state === 'PLAYING') {
+              this.p2.dash(this.shake, this.particles);
+            }
+          });
+
+          window.addEventListener('keyup', (e) => {
+            this.keys[e.code] = false;
+          });
+        }
+
+        _initPeerJS() {
+          const words = ['CYBR', 'KRAK', 'NEON', 'VOID', 'ABYS', 'ROBX', 'VOXL', 'CLAW'];
+          this.roomCode = words[Math.floor(Math.random() * words.length)] + Math.floor(10 + Math.random() * 89);
+          const roomLabel = document.getElementById('roomCodeLabel');
+          if (roomLabel) roomLabel.textContent = `ROOM: ${this.roomCode}`;
+
+          const controllerUrl = `${window.location.origin}${window.location.pathname}?c=1&room=${this.roomCode}`;
+          const qrContainer = document.getElementById('startQrCode');
+          if (qrContainer && typeof QRCode !== 'undefined') {
+            qrContainer.innerHTML = '';
+            new QRCode(qrContainer, {
+              text: controllerUrl,
+              width: 110,
+              height: 110,
+              colorDark: "#ffe600",
+              colorLight: "#060a17"
+            });
+          }
+
+          if (typeof Peer !== 'undefined') {
+            try {
+              this.peer = new Peer(`neonkraken-${this.roomCode.toLowerCase()}`);
+              this.peer.on('connection', (conn) => {
+                conn.on('data', (data) => {
+                  if (!data) return;
+                  if (data.type === 'move') {
+                    this.p2MobileDir.x = data.x;
+                    this.p2MobileDir.y = data.y;
+                  } else if (data.type === 'dash') {
+                    if (this.state === 'PLAYING') {
+                      this.p2.dash(this.shake, this.particles);
+                    }
+                  }
+                });
+              });
+            } catch (e) {
+              console.warn("PeerJS host init note:", e);
+            }
+          }
+        }
+
+        _bindDom() {
+          document.getElementById('startGameBtn').onclick = () => {
+            sound.ensure();
+            this.start();
+          };
+          document.getElementById('retryGameBtn').onclick = () => this.start();
+          document.getElementById('victoryBtn').onclick = () => this.start();
+          document.getElementById('restartQuickBtn').onclick = () => this.start();
+          document.getElementById('muteBtn').onclick = (e) => {
+            const m = sound.toggleMute();
+            e.target.textContent = m ? '🔇 AUDIO OFF' : '🔊 AUDIO ON';
+          };
+        }
+
+        start() {
+          this.state = 'PLAYING';
+          this.p1.reset(-50, 150);
+          this.p2.reset(50, 150);
+          this.boss.reset(0, -100);
+          this.keycardsDeposited = 0;
+          this.score = 0;
+          this.multiplier = 1;
+          this.comboTimer = 0;
+          this.exitUnlocked = false;
+          this.correctDoor = Math.random() < 0.5 ? 'A' : 'B'; // Randomized on load
+
+          for (const p of this.projectiles) p.active = false;
+          this.collectibles = [];
+
+          // Spawn Keycard 1 inside Room 1 (West Retro Arcade)
+          this.collectibles.push(new CollectibleItem('keycard', this.facility.room1KeycardPos.x, this.facility.room1KeycardPos.y, 1));
+
+          // Scatter coins along corridor floors
+          const floorTiles = this.facility.getCorridorFloorTiles();
+          floorTiles.sort(() => Math.random() - 0.5);
+
+          for (let i = 0; i < Math.min(26, floorTiles.length); i++) {
+            this.collectibles.push(new CollectibleItem('coin', floorTiles[i].x, floorTiles[i].y));
+          }
+
+          // Speed Bolts & Invulnerability Stars in corridor corners
+          this.collectibles.push(new CollectibleItem('speed', -300, 240));
+          this.collectibles.push(new CollectibleItem('speed', 300, 240));
+          this.collectibles.push(new CollectibleItem('star', 0, 240));
+
+          document.getElementById('startModal').classList.add('hidden');
+          document.getElementById('gameOverModal').classList.add('hidden');
+          document.getElementById('victoryModal').classList.add('hidden');
+          document.getElementById('victoryCard').classList.remove('beach-scene');
+        }
+
+        loop(currentTime) {
+          const dt = Math.min((currentTime - this.lastTime) / 1000, 0.1);
+          this.lastTime = currentTime;
+
+          this.update(dt);
+          this.render();
+
+          requestAnimationFrame((t) => this.loop(t));
+        }
+
+        update(dt) {
+          if (this.state === 'PLAYING') {
+            // 1. INPUT RESOLUTION
+            let p1x = 0, p1y = 0;
+            if (this.keys['KeyW']) p1y -= 1;
+            if (this.keys['KeyS']) p1y += 1;
+            if (this.keys['KeyA']) p1x -= 1;
+            if (this.keys['KeyD']) p1x += 1;
+            const p1len = Math.hypot(p1x, p1y);
+            if (p1len > 1) { p1x /= p1len; p1y /= p1len; }
+
+            let p2x = 0, p2y = 0;
+            if (this.keys['ArrowUp']) p2y -= 1;
+            if (this.keys['ArrowDown']) p2y += 1;
+            if (this.keys['ArrowLeft']) p2x -= 1;
+            if (this.keys['ArrowRight']) p2x += 1;
+            if (Math.hypot(this.p2MobileDir.x, this.p2MobileDir.y) > 0.1) {
+              p2x = this.p2MobileDir.x;
+              p2y = this.p2MobileDir.y;
+            }
+            const p2len = Math.hypot(p2x, p2y);
+            if (p2len > 1) { p2x /= p2len; p2y /= p2len; }
+
+            // Update Voxel Players
+            this.p1.update(dt, { x: p1x, y: p1y }, this.facility, this.keycardsDeposited, this.exitUnlocked, this.particles);
+            this.p2.update(dt, { x: p2x, y: p2y }, this.facility, this.keycardsDeposited, this.exitUnlocked, this.particles);
+
+            // Check Defeat
+            if (this.p1.isDead && this.p2.isDead) {
+              this.state = 'GAMEOVER';
+              document.getElementById('gameOverModal').classList.remove('hidden');
+              document.getElementById('finalScoreText').textContent = `FINAL SCORE: ${this.score}`;
+            }
+
+            // 2. UPDATE CLAW MACHINE HAZARDS
+            for (const claw of this.claws) {
+              claw.update(dt, this.players, this.shake, this.particles, this.popups);
+            }
+
+            // 2b. UPDATE BOWLING BALLS (Stage 2)
+            for (const ball of this.bowlingBalls) {
+              ball.update(dt, this.players, this.shake, this.particles, this.popups);
+            }
+
+            // 3. UPDATE BOSS (relentless chaser, -10 HP on touch)
+            this.boss.update(
+              dt,
+              this.players,
+              this.facility,
+              this.keycardsDeposited,
+              this.exitUnlocked,
+              this.shake,
+              this.particles,
+              this.popups
+            );
+
+            // 4. PROJECTILES
+            for (const p of this.projectiles) {
+              if (!p.active) continue;
+              p.update(dt, this.facility, this.particles);
+              if (!p.active) continue;
+
+              for (const player of this.players) {
+                if (player.isDead) continue;
+                if (Math.hypot(p.x - player.pos.x, p.y - player.pos.y) < p.radius + player.radius) {
+                  if (player.starTimer > 0 || player.isDashing) {
+                    p.active = false;
+                    this.particles.burst(p.x, p.y, 8, '#00f0ff', 160);
+                  } else {
+                    p.active = false;
+                    player.takeDamage(15, this.shake, this.particles, this.popups);
+                  }
+                }
+              }
+            }
+
+            // 5. COLLECTIBLES, PICKUP & CARRY
+            if (this.multiplier > 1) {
+              this.comboTimer -= dt;
+              if (this.comboTimer <= 0) {
+                this.multiplier = 1;
+                this.popups.spawn(this.p1.pos.x, this.p1.pos.y - 30, "COMBO LOST", '#888', 0.9);
+              }
+            }
+
+            for (let i = this.collectibles.length - 1; i >= 0; i--) {
+              const c = this.collectibles[i];
+              c.update(dt, this.particles);
+
+              for (const player of this.players) {
+                if (player.isDead) continue;
+                if (Math.hypot(c.pos.x - player.pos.x, c.pos.y - player.pos.y) < c.radius + player.radius) {
+                  if (c.type === 'keycard') {
+                    // Collect the stage Key -> instantly unlocks the next stage
+                    c.alive = false;
+                    this.collectibles.splice(i, 1);
+                    this.keycardsDeposited++;
+
+                    sound.playKeycardPickup();
+                    this.shake.add(0.4);
+                    this.particles.ring(player.pos.x, player.pos.y, 40, '#39ff14', 400);
+                    this.popups.spawn(player.pos.x, player.pos.y - 25, `KEY ${c.id} COLLECTED!`, '#00f0ff', 1.3);
+
+                    if (this.keycardsDeposited === 1) {
+                      // Stage 1 (Arcade Wing) cleared -> unlock Stage 2 (East Wing)
+                      this.popups.spawn(this.facility.gate2.x, this.facility.gate2.y - 30, "STAGE 1 COMPLETE! STAGE 2 UNLOCKED!", '#ffe600', 1.4);
+                      this.collectibles.push(new CollectibleItem('keycard', this.facility.room2KeycardPos.x, this.facility.room2KeycardPos.y, 2));
+                    } else if (this.keycardsDeposited === 2) {
+                      // Stage 2 cleared -> unlock Stage 3 (Piranha Doors)
+                      this.popups.spawn(this.facility.gate3.x, this.facility.gate3.y - 30, "STAGE 2 COMPLETE! CHOOSE A DOOR...", '#ffe600', 1.4);
+                    }
+                  } else {
+                    c.alive = false;
+                    this.collectibles.splice(i, 1);
+
+                    if (c.type === 'coin') {
+                      if (this.multiplier === 1) this.multiplier = 2;
+                      else if (this.multiplier === 2) this.multiplier = 4;
+                      else if (this.multiplier === 4) this.multiplier = 8;
+                      this.comboTimer = 3.5;
+
+                      const earned = 100 * this.multiplier;
+                      this.score += earned;
+                      this.popups.spawn(c.pos.x, c.pos.y - 20, `+${earned} (${this.multiplier}X)`, '#ffe600', 1.2);
+                      this.particles.burst(c.pos.x, c.pos.y, 14, '#ffe600', 200);
+                      sound.playCoin(this.multiplier);
+                    } else if (c.type === 'speed') {
+                      player.speedBoostTimer = 6.0;
+                      this.particles.burst(c.pos.x, c.pos.y, 25, '#39ff14', 260);
+                      this.popups.spawn(c.pos.x, c.pos.y - 20, "+50% SPEED BOOST!", '#39ff14', 1.3);
+                      sound.playPowerup();
+                    } else if (c.type === 'star') {
+                      player.starTimer = 5.0;
+                      this.shake.add(0.3);
+                      this.particles.ring(c.pos.x, c.pos.y, 40, '#ff00ff', 350);
+                      this.popups.spawn(c.pos.x, c.pos.y - 20, "RAINBOW INVULNERABLE!", '#ff00ff', 1.4);
+                      sound.playPowerup();
+                    }
+                  }
+                  break;
+                }
+              }
+            }
+
+            // 6. STAGE 3: PIRANHA DOOR CHECK (only reachable once Stage 3 is unlocked)
+            if (this.keycardsDeposited >= 2 && this.state === 'PLAYING') {
+              for (const player of this.players) {
+                if (player.isDead) continue;
+                const dA = Math.hypot(this.facility.doorA.x - player.pos.x, this.facility.doorA.y - player.pos.y);
+                const dB = Math.hypot(this.facility.doorB.x - player.pos.x, this.facility.doorB.y - player.pos.y);
+                const hitDoor = dA < this.facility.doorA.radius + player.radius ? 'A' : (dB < this.facility.doorB.radius + player.radius ? 'B' : null);
+                if (!hitDoor) continue;
+
+                if (hitDoor === this.correctDoor) {
+                  this.state = 'VICTORY';
+                  this.score += 5000;
+                  this.shake.add(0.8);
+                  this.particles.ring(player.pos.x, player.pos.y, 100, '#39ff14', 600);
+                  document.getElementById('victoryCard').classList.add('beach-scene');
+                  document.getElementById('victorySubtitle').textContent = "You escaped! The Piranhas ate the Octopus!";
+                  document.getElementById('victoryModal').classList.remove('hidden');
+                  document.getElementById('victoryScoreText').textContent = `FINAL SCORE: ${this.score}`;
+                  sound.playExitUnlocked();
+                } else {
+                  this.state = 'GAMEOVER';
+                  this.shake.add(0.8);
+                  document.getElementById('gameOverSubtitle').textContent = "Wrong door! You were eaten by Piranhas!";
+                  document.getElementById('gameOverModal').classList.remove('hidden');
+                  document.getElementById('finalScoreText').textContent = `FINAL SCORE: ${this.score}`;
+                  sound.playDamage();
+                }
+                break;
+              }
+            }
+
+            // Camera Tracking
+            const activePlayers = this.players.filter(p => !p.isDead);
+            if (activePlayers.length > 0) {
+              const avgX = activePlayers.reduce((sum, p) => sum + p.pos.x, 0) / activePlayers.length;
+              const avgY = activePlayers.reduce((sum, p) => sum + p.pos.y, 0) / activePlayers.length;
+              this.camera.x += (avgX * 0.5 - this.camera.x) * dt * 5;
+              this.camera.y += (avgY * 0.5 - this.camera.y) * dt * 5;
+            }
+
+            this._syncHud();
+          }
+
+          this.shake.update(dt);
+          this.particles.update(dt);
+          this.popups.update(dt);
+        }
+
+        _syncHud() {
+          const p1HpBar = document.getElementById('p1HpBar');
+          const p1HpText = document.getElementById('p1HpText');
+          const p1DashBar = document.getElementById('p1DashBar');
+          if (p1HpBar) p1HpBar.style.width = `${Math.max(0, this.p1.hp)}%`;
+          if (p1HpText) p1HpText.textContent = this.p1.isDead ? 'DOWN' : `${Math.ceil(this.p1.hp)}%`;
+          if (p1DashBar) {
+            const p1d = this.p1.dashCooldownTimer <= 0 ? 100 : (1 - this.p1.dashCooldownTimer / this.p1.dashCooldown) * 100;
+            p1DashBar.style.width = `${p1d}%`;
+          }
+
+          const p2HpBar = document.getElementById('p2HpBar');
+          const p2HpText = document.getElementById('p2HpText');
+          const p2DashBar = document.getElementById('p2DashBar');
+          if (p2HpBar) p2HpBar.style.width = `${Math.max(0, this.p2.hp)}%`;
+          if (p2HpText) p2HpText.textContent = this.p2.isDead ? 'DOWN' : `${Math.ceil(this.p2.hp)}%`;
+          if (p2DashBar) {
+            const p2d = this.p2.dashCooldownTimer <= 0 ? 100 : (1 - this.p2.dashCooldownTimer / this.p2.dashCooldown) * 100;
+            p2DashBar.style.width = `${p2d}%`;
+          }
+
+          const stageNames = ['STAGE 1 // ARCADE WING', 'STAGE 2 // BOWLING CORRIDOR', 'STAGE 3 // NORTH WING'];
+          const bossTitle = document.getElementById('bossStateTitle');
+          if (bossTitle) bossTitle.textContent = stageNames[Math.min(this.keycardsDeposited, 2)];
+
+          // Update Stage Key Progress Slots
+          for (let i = 1; i <= 3; i++) {
+            const slot = document.getElementById(`slot${i}`);
+            slot.className = 'key-slot';
+            if (this.keycardsDeposited >= i) {
+              slot.classList.add('deposited');
+            }
+          }
+
+          const statusText = document.getElementById('objectiveStatusText');
+          if (this.exitUnlocked) {
+            statusText.textContent = 'BLAST DOOR UNLOCKED! ESCAPE NORTH!';
+            statusText.className = 'objective-status-text escape-ready';
+          } else {
+            statusText.textContent = 'FIND THE KEY // AVOID THE BOSS & CLAW';
+            statusText.className = 'objective-status-text';
+          }
+
+          document.getElementById('scoreDisplay').textContent = this.score.toLocaleString();
+          const mulBadge = document.getElementById('multiplierDisplay');
+          mulBadge.textContent = `${this.multiplier}X MULTIPLIER`;
+          mulBadge.style.color = this.multiplier > 1 ? '#ffe600' : '#888';
+        }
+
+        render() {
+          const dpr = Math.min(window.devicePixelRatio || 1, 2);
+          this.ctx.resetTransform();
+          this.ctx.scale(dpr, dpr);
+
+          const w = this.width;
+          const h = this.height;
+
+          this.ctx.fillStyle = '#03050c';
+          this.ctx.fillRect(0, 0, w, h);
+
+          this.ctx.save();
+          this.ctx.translate(w / 2, h / 2);
+          this.shake.apply(this.ctx);
+          this.ctx.translate(-this.camera.x, -this.camera.y);
+
+          // 1. Draw Facility Walls, Corridors, Gates & Arcade Cabinets
+          this.facility.draw(this.ctx, this.keycardsDeposited, this.exitUnlocked);
+
+          // 2. Draw Overhead Claw Machine Hazards
+          for (const claw of this.claws) claw.draw(this.ctx);
+
+          // 2b. Draw Rolling Bowling Balls
+          for (const ball of this.bowlingBalls) ball.draw(this.ctx);
+
+          // 3. Draw Collectibles
+          for (const c of this.collectibles) c.draw(this.ctx);
+
+          // 4. Draw Projectiles
+          for (const p of this.projectiles) p.draw(this.ctx);
+
+          // 5. Draw Voxel Players (Roblox / Minecraft style)
+          this.p1.draw(this.ctx);
+          this.p2.draw(this.ctx);
+
+          // 6. Draw Octopus Boss & Tentacles
+          this.boss.draw(this.ctx);
+
+          // 7. Draw Visual Juice (Particles & Popups)
+          this.particles.draw(this.ctx);
+          this.popups.draw(this.ctx);
+
+          this.ctx.restore();
+        }
+      }
+
+      // -------------------------------------------------------------
+      // 9. MOBILE CONTROLLER PEER CLIENT (D-PAD + DASH)
+      // -------------------------------------------------------------
+      function initMobileController(room) {
+        document.getElementById('desktopGameView').style.display = 'none';
+        const mobView = document.getElementById('mobileControllerView');
+        mobView.style.display = 'flex';
+
+        const statusPill = document.getElementById('mobileStatusPill');
+        if (!room) {
+          statusPill.textContent = 'NO ROOM CODE';
+          statusPill.style.color = '#ff0055';
+          return;
+        }
+
+        const peer = new Peer();
+        let conn = null;
+
+        peer.on('open', () => {
+          conn = peer.connect(`neonkraken-${room.toLowerCase()}`, { reliable: false });
+          conn.on('open', () => {
+            statusPill.textContent = `CONNECTED: ${room.toUpperCase()}`;
+            statusPill.style.color = '#39ff14';
+            if (navigator.vibrate) navigator.vibrate([30, 40, 30]);
+          });
+          conn.on('close', () => {
+            statusPill.textContent = 'DISCONNECTED';
+            statusPill.style.color = '#ff0055';
+          });
+        });
+
+        const state = { x: 0, y: 0 };
+        function sendMove() {
+          if (conn && conn.open) {
+            conn.send({ type: 'move', x: state.x, y: state.y });
+          }
+        }
+
+        function bindDpad(btnId, dx, dy) {
+          const btn = document.getElementById(btnId);
+          const press = (e) => {
+            e.preventDefault();
+            btn.classList.add('pressed');
+            state.x = dx;
+            state.y = dy;
+            sendMove();
+          };
+          const release = (e) => {
+            e.preventDefault();
+            btn.classList.remove('pressed');
+            state.x = 0;
+            state.y = 0;
+            sendMove();
+          };
+          btn.addEventListener('touchstart', press, { passive: false });
+          btn.addEventListener('touchend', release, { passive: false });
+          btn.addEventListener('mousedown', press);
+          btn.addEventListener('mouseup', release);
+        }
+
+        bindDpad('btnUp', 0, -1);
+        bindDpad('btnDown', 0, 1);
+        bindDpad('btnLeft', -1, 0);
+        bindDpad('btnRight', 1, 0);
+
+        const dashBtn = document.getElementById('btnDash');
+        const triggerDash = (e) => {
+          e.preventDefault();
+          if (navigator.vibrate) navigator.vibrate(25);
+          if (conn && conn.open) conn.send({ type: 'dash' });
+        };
+        dashBtn.addEventListener('touchstart', triggerDash, { passive: false });
+        dashBtn.addEventListener('mousedown', triggerDash);
+      }
+
+      // Start Desktop Game
+      window.addEventListener('DOMContentLoaded', () => {
+        if (!isMobileController) {
+          window.neonGame = new NeonKrakenGame();
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
